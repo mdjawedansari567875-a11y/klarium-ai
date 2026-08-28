@@ -30,7 +30,6 @@ export default function TestModal({ visible, questions, onFinish, loading }) {
 
   const handleClose = () => {
     onFinish(score, questions?.length || 0);
-    // reset local state for next time
     setStep(0);
     setSelected(null);
     setScore(0);
@@ -119,4 +118,52 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   progress: {
-    ...typog
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  scoreText: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.gold,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  question: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  option: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  optionCorrect: {
+    borderColor: colors.success,
+    backgroundColor: 'rgba(62,207,142,0.12)',
+  },
+  optionWrong: {
+    borderColor: colors.danger,
+    backgroundColor: 'rgba(255,92,122,0.12)',
+  },
+  optionText: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: colors.textPrimary,
+  },
+});
