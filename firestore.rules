@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Leaderboard: anyone using the app can READ everyone's scores
+    // (that's the whole point of a leaderboard), but a user can only
+    // WRITE to their own document — identified by their Firebase uid,
+    // which matches the document ID we use in saveTestScore().
+    match /leaderboard/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
