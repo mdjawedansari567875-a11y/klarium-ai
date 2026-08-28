@@ -2,6 +2,7 @@
   "expo": {
     "name": "KLARIUM AI",
     "slug": "klarium-ai",
+    "owner": "carfam7s-team",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
