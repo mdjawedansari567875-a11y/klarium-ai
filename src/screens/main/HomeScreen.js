@@ -106,12 +106,12 @@ export default function HomeScreen() {
     pushMessage({ id: Date.now() + '-u', role: 'user', text: question });
     setSending(true);
     try {
-      const answer = await askTutorText({
+      const { text, image } = await askTutorText({
         question,
         classNumber: profile?.classNumber,
         board: profile?.board,
       });
-      pushMessage({ id: Date.now() + '-ai', role: 'ai', text: answer });
+      pushMessage({ id: Date.now() + '-ai', role: 'ai', text, aiImage: image });
       await recordTopic(question.slice(0, 80));
     } catch (e) {
       pushMessage({
@@ -144,14 +144,14 @@ export default function HomeScreen() {
     pushMessage({ id: Date.now() + '-u-img', role: 'user', image: asset.uri });
     setSending(true);
     try {
-      const answer = await askTutorPhoto({
+      const { text, image } = await askTutorPhoto({
         base64Image: asset.base64,
         mimeType: 'image/jpeg',
         question: 'Please explain what is shown in this image, simply.',
         classNumber: profile?.classNumber,
         board: profile?.board,
       });
-      pushMessage({ id: Date.now() + '-ai-img', role: 'ai', text: answer });
+      pushMessage({ id: Date.now() + '-ai-img', role: 'ai', text, aiImage: image });
       await recordTopic('photo question');
     } catch (e) {
       pushMessage({
@@ -179,6 +179,13 @@ export default function HomeScreen() {
       >
         {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
         {item.text ? <Text style={styles.bubbleText}>{item.text}</Text> : null}
+        {item.aiImage && (
+          <Image
+            source={{ uri: item.aiImage }}
+            style={styles.aiIllustration}
+            resizeMode="contain"
+          />
+        )}
       </View>
     ),
     []
@@ -284,6 +291,13 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: radius.sm,
     marginBottom: spacing.xs,
+  },
+  aiIllustration: {
+    width: '100%',
+    height: 200,
+    borderRadius: radius.sm,
+    marginTop: spacing.sm,
+    backgroundColor: colors.surface,
   },
   typingRow: {
     flexDirection: 'row',
