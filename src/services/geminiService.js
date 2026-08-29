@@ -66,7 +66,7 @@ async function callGeminiWithImage(key, body) {
   });
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error?.message || 'AI request failed');
+    throwGeminiError(response.status, data);
   }
 
   const parts = data?.candidates?.[0]?.content?.parts ?? [];
@@ -79,6 +79,23 @@ async function callGeminiWithImage(key, body) {
     }
   }
   return { text: text.trim(), image };
+}
+
+// Free-tier Gemini keys stop working once the daily/monthly quota runs out.
+// Google returns HTTP 429 with a RESOURCE_EXHAUSTED status in that case —
+// this turns that into a clear, specific error the UI can act on.
+function throwGeminiError(status, data) {
+  const message = data?.error?.message || '';
+  const errStatus = data?.error?.status || '';
+  const isQuota =
+    status === 429 ||
+    errStatus === 'RESOURCE_EXHAUSTED' ||
+    /quota|exceeded|upgrade|billing/i.test(message);
+
+  if (isQuota) {
+    throw new Error('QUOTA_EXCEEDED');
+  }
+  throw new Error(message || 'AI request failed');
 }
 
 // Text-only helper for things that must stay plain text (like quiz JSON) —
@@ -96,7 +113,7 @@ async function callGeminiTextOnly(key, body) {
   });
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error?.message || 'AI request failed');
+    throwGeminiError(response.status, data);
   }
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
