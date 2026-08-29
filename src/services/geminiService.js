@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// This model can return BOTH text and a generated illustrative image in one
-// response — this is what lets KLARIUM AI "show and tell" like a real tutor.
-const GEMINI_MODEL = 'gemini-2.5-flash-image';
+// Current Gemini flash model — text + photo understanding, no image generation
+// (image generation requires a billed Google Cloud account, so we keep this
+// app fully usable on a free API key).
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const KEY_STORAGE = 'klarium_api_key';
@@ -10,18 +11,15 @@ const KEY_SAVED_AT_STORAGE = 'klarium_api_key_saved_at';
 const KEY_LIFETIME_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // The system instruction that makes the AI teach "like explaining to a child" —
-// simple words, one topic at a time, plus a helpful picture, as requested.
+// simple words, one topic at a time.
 const TUTOR_INSTRUCTION = (classNumber, board) => `
 You are KLARIUM AI, a friendly tutor for a Class ${classNumber} student following the ${board} curriculum.
 Rules for every answer:
 - Explain like you're talking to a curious child — simple words, short sentences.
 - Cover ONE topic/idea at a time. Do not overload with multiple concepts at once.
 - Use a simple everyday example or analogy wherever possible.
-- ALWAYS also generate one simple, colorful, clear illustration or diagram that
-  visually explains the topic — like a picture from a children's textbook —
-  alongside your text explanation, so the student can see it as well as read it.
 - Keep answers encouraging and warm, never condescending.
-- If the question is unclear, ask a gentle follow-up question (image optional in that case).
+- If the question is unclear, ask a gentle follow-up question.
 `;
 
 // Call this from Settings right after the user saves a key, so the
@@ -50,37 +48,6 @@ async function getValidApiKey() {
   return key;
 }
 
-// Calls Gemini and returns both the text explanation and a generated image
-// (as a data URI, ready to drop straight into an <Image> source), if one came back.
-async function callGeminiWithImage(key, body) {
-  const response = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': key,
-    },
-    body: JSON.stringify({
-      ...body,
-      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
-    }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    throwGeminiError(response.status, data);
-  }
-
-  const parts = data?.candidates?.[0]?.content?.parts ?? [];
-  let text = '';
-  let image = null;
-  for (const part of parts) {
-    if (part.text) text += part.text;
-    if (part.inlineData?.data) {
-      image = `data:${part.inlineData.mimeType || 'image/png'};base64,${part.inlineData.data}`;
-    }
-  }
-  return { text: text.trim(), image };
-}
-
 // Free-tier Gemini keys stop working once the daily/monthly quota runs out.
 // Google returns HTTP 429 with a RESOURCE_EXHAUSTED status in that case —
 // this turns that into a clear, specific error the UI can act on.
@@ -98,12 +65,8 @@ function throwGeminiError(status, data) {
   throw new Error(message || 'AI request failed');
 }
 
-// Text-only helper for things that must stay plain text (like quiz JSON) —
-// no image generation, cheaper and faster.
-async function callGeminiTextOnly(key, body) {
-  const textModelUrl =
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-  const response = await fetch(textModelUrl, {
+async function callGemini(key, body) {
+  const response = await fetch(GEMINI_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -118,22 +81,20 @@ async function callGeminiTextOnly(key, body) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-// Ask the AI a text question. Returns { text, image } — image may be null
-// if the model chose not to generate one (e.g. a clarifying question).
+// Ask the AI a text question.
 export async function askTutorText({ question, classNumber, board }) {
   const key = await getValidApiKey();
-  return callGeminiWithImage(key, {
+  return callGemini(key, {
     systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [{ role: 'user', parts: [{ text: question }] }],
   });
 }
 
 // Ask the AI about a photo (e.g. a textbook page, a diagram, homework question).
-// Returns { text, image } — the AI can both read the photo AND draw a fresh
-// illustration to explain the concept further.
+// Gemini can read/understand the photo and explain it in text, even on a free key.
 export async function askTutorPhoto({ base64Image, mimeType, question, classNumber, board }) {
   const key = await getValidApiKey();
-  return callGeminiWithImage(key, {
+  return callGemini(key, {
     systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [
       {
@@ -148,7 +109,7 @@ export async function askTutorPhoto({ base64Image, mimeType, question, classNumb
 }
 
 // Generates a short quiz from the list of topics the student has learned this week.
-// Text-only — quizzes don't need generated images.
+// Used to power the weekly streak test popup. Expects the AI to return strict JSON.
 export async function generateWeeklyQuiz({ topics, classNumber, board }) {
   const key = await getValidApiKey();
   const prompt = `
@@ -157,7 +118,7 @@ based ONLY on these topics they studied this week: ${topics.join(', ')}.
 Respond with ONLY valid JSON, no markdown, in this exact shape:
 [{"question": "...", "options": ["A","B","C","D"], "correctIndex": 0}]
 `;
-  const raw = await callGeminiTextOnly(key, {
+  const raw = await callGemini(key, {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   });
   const cleaned = raw.replace(/```json|```/g, '').trim();
