@@ -7,8 +7,11 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0B0B14",
+    "icon": "./assets/klarium-icon.png",
     "splash": {
-      "backgroundColor": "#0B0B14"
+      "image": "./assets/klarium-splash-icon.png",
+      "backgroundColor": "#0B0B14",
+      "resizeMode": "contain"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
@@ -18,6 +21,7 @@
     "android": {
       "package": "com.carfam.klariumai",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/klarium-adaptive-icon-foreground.png",
         "backgroundColor": "#0B0B14"
       }
     },
