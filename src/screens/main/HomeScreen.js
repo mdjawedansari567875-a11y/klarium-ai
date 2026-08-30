@@ -12,13 +12,21 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import TestModal from '../../components/TestModal';
 import TutorialOverlay from '../../components/TutorialOverlay';
+import AttachmentSheet from '../../components/AttachmentSheet';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
-import { askTutorText, askTutorPhoto, generateWeeklyQuiz } from '../../services/geminiService';
+import {
+  askTutorText,
+  askTutorPhoto,
+  generateWeeklyQuiz,
+  transcribeAudio,
+} from '../../services/geminiService';
 import {
   recordActiveDay,
   recordTopic,
@@ -43,7 +51,11 @@ export default function HomeScreen() {
   const [testLoading, setTestLoading] = useState(false);
   const [quiz, setQuiz] = useState([]);
   const [tutorialVisible, setTutorialVisible] = useState(false);
+  const [attachmentVisible, setAttachmentVisible] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const listRef = useRef(null);
+  const recordingRef = useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -99,6 +111,21 @@ export default function HomeScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
+  const pushErrorMessage = (idSuffix, fallbackText, e) => {
+    pushMessage({
+      id: Date.now() + idSuffix,
+      role: 'ai',
+      text:
+        e.message === 'NO_API_KEY'
+          ? 'Please add your Gemini API key in Settings first so I can start teaching you.'
+          : e.message === 'API_KEY_EXPIRED'
+          ? 'Your API key expired after 24 hours. Please go to Settings and generate/save your key again to keep chatting.'
+          : e.message === 'QUOTA_EXCEEDED'
+          ? 'Your free API key has reached its usage limit. Please generate a new API key in Settings to keep chatting.'
+          : fallbackText,
+    });
+  };
+
   const sendText = async () => {
     const question = input.trim();
     if (!question || sending) return;
@@ -114,35 +141,14 @@ export default function HomeScreen() {
       pushMessage({ id: Date.now() + '-ai', role: 'ai', text: answer });
       await recordTopic(question.slice(0, 80));
     } catch (e) {
-      pushMessage({
-        id: Date.now() + '-err',
-        role: 'ai',
-        text:
-          e.message === 'NO_API_KEY'
-            ? 'Please add your Gemini API key in Settings first so I can start teaching you.'
-            : e.message === 'API_KEY_EXPIRED'
-            ? 'Your API key expired after 24 hours. Please go to Settings and generate/save your key again to keep chatting.'
-            : e.message === 'QUOTA_EXCEEDED'
-            ? 'Your free API key has reached its usage limit. Please generate a new API key in Settings to keep chatting.'
-            : `Debug error: ${e.message}`,
-      });
+      pushErrorMessage('-err', "Sorry, I couldn't process that. Please try again.", e);
     } finally {
       setSending(false);
     }
   };
 
-  const sendPhoto = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      base64: true,
-      quality: 0.6,
-    });
-    if (result.canceled) return;
-
-    const asset = result.assets[0];
+  // Shared handler for a picked image, whether it came from the camera or the gallery.
+  const handlePickedAsset = async (asset) => {
     pushMessage({ id: Date.now() + '-u-img', role: 'user', image: asset.uri });
     setSending(true);
     try {
@@ -156,21 +162,80 @@ export default function HomeScreen() {
       pushMessage({ id: Date.now() + '-ai-img', role: 'ai', text: answer });
       await recordTopic('photo question');
     } catch (e) {
-      pushMessage({
-        id: Date.now() + '-err-img',
-        role: 'ai',
-        text:
-          e.message === 'NO_API_KEY'
-            ? 'Please add your Gemini API key in Settings first so I can start teaching you.'
-            : e.message === 'API_KEY_EXPIRED'
-            ? 'Your API key expired after 24 hours. Please go to Settings and generate/save your key again to keep chatting.'
-            : e.message === 'QUOTA_EXCEEDED'
-            ? 'Your free API key has reached its usage limit. Please generate a new API key in Settings to keep chatting.'
-            : `Debug error: ${e.message}`,
-      });
+      pushErrorMessage('-err-img', "Sorry, I couldn't read that image. Please try again.", e);
     } finally {
       setSending(false);
     }
+  };
+
+  const openCamera = async () => {
+    setAttachmentVisible(false);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchCameraAsync({
+      base64: true,
+      quality: 0.6,
+    });
+    if (result.canceled) return;
+    await handlePickedAsset(result.assets[0]);
+  };
+
+  const openGallery = async () => {
+    setAttachmentVisible(false);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      base64: true,
+      quality: 0.6,
+    });
+    if (result.canceled) return;
+    await handlePickedAsset(result.assets[0]);
+  };
+
+  // Mic button: first tap starts recording, second tap stops it, transcribes
+  // it with Gemini, and drops the recognized text into the input box so the
+  // student can review (or edit) it before sending — just like a voice note
+  // that becomes editable text.
+  const handleMicPress = async () => {
+    if (isRecording) {
+      setIsRecording(false);
+      const recording = recordingRef.current;
+      recordingRef.current = null;
+      if (!recording) return;
+
+      try {
+        await recording.stopAndUnloadAsync();
+        const uri = recording.getURI();
+        setTranscribing(true);
+        const base64Audio = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const text = await transcribeAudio({ base64Audio, mimeType: 'audio/m4a' });
+        setInput((prev) => (prev ? `${prev} ${text}` : text));
+      } catch (e) {
+        pushErrorMessage(
+          '-err-voice',
+          "Sorry, I couldn't understand that recording. Please try again.",
+          e
+        );
+      } finally {
+        setTranscribing(false);
+      }
+      return;
+    }
+
+    const permission = await Audio.requestPermissionsAsync();
+    if (!permission.granted) return;
+
+    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+    const { recording } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.HIGH_QUALITY
+    );
+    recordingRef.current = recording;
+    setIsRecording(true);
   };
 
   const renderItem = useCallback(
@@ -207,16 +272,18 @@ export default function HomeScreen() {
         contentContainerStyle={styles.chatList}
       />
 
-      {sending && (
+      {(sending || transcribing) && (
         <View style={styles.typingRow}>
           <ActivityIndicator color={colors.gold} size="small" />
-          <Text style={styles.typingText}>KLARIUM AI is thinking...</Text>
+          <Text style={styles.typingText}>
+            {transcribing ? 'Listening to your voice note...' : 'KLARIUM AI is thinking...'}
+          </Text>
         </View>
       )}
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.inputRow}>
-          <Pressable style={styles.iconButton} onPress={sendPhoto}>
+          <Pressable style={styles.iconButton} onPress={() => setAttachmentVisible(true)}>
             <Ionicons name="image-outline" size={22} color={colors.gold} />
           </Pressable>
           <TextInput
@@ -227,6 +294,16 @@ export default function HomeScreen() {
             style={styles.textInput}
             multiline
           />
+          <Pressable
+            style={[styles.iconButton, isRecording && styles.iconButtonRecording]}
+            onPress={handleMicPress}
+          >
+            <Ionicons
+              name={isRecording ? 'stop' : 'mic-outline'}
+              size={22}
+              color={isRecording ? '#fff' : colors.gold}
+            />
+          </Pressable>
           <Pressable style={styles.sendButton} onPress={sendText} disabled={sending}>
             <Ionicons name="send" size={18} color="#fff" />
           </Pressable>
@@ -241,6 +318,13 @@ export default function HomeScreen() {
       />
 
       <TutorialOverlay visible={tutorialVisible} onDone={handleTutorialDone} />
+
+      <AttachmentSheet
+        visible={attachmentVisible}
+        onClose={() => setAttachmentVisible(false)}
+        onCamera={openCamera}
+        onGallery={openGallery}
+      />
     </ScreenBackground>
   );
 }
@@ -289,13 +373,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     marginBottom: spacing.xs,
   },
-  aiIllustration: {
-    width: '100%',
-    height: 200,
-    borderRadius: radius.sm,
-    marginTop: spacing.sm,
-    backgroundColor: colors.surface,
-  },
   typingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -322,6 +399,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconButtonRecording: {
+    backgroundColor: colors.danger,
   },
   textInput: {
     flex: 1,
