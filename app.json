@@ -44,6 +44,13 @@
         {
           "microphonePermission": "KLARIUM AI uses the microphone so you can speak your question instead of typing it."
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-4588188976164551~1893143462",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
       ]
     ],
     "extra": {
