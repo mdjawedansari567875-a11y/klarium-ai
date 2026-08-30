@@ -20,6 +20,7 @@ import ScreenBackground from '../../components/ScreenBackground';
 import TestModal from '../../components/TestModal';
 import TutorialOverlay from '../../components/TutorialOverlay';
 import AttachmentSheet from '../../components/AttachmentSheet';
+import BannerAdView from '../../components/BannerAdView';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import {
   askTutorText,
@@ -280,6 +281,8 @@ export default function HomeScreen() {
           </Text>
         </View>
       )}
+
+      <BannerAdView />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.inputRow}>
