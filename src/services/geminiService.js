@@ -128,3 +128,24 @@ Respond with ONLY valid JSON, no markdown, in this exact shape:
     return [];
   }
 }
+
+// Transcribes a short voice recording into plain text, so the student can
+// speak their question instead of typing it. Gemini's audio understanding
+// works on the same free text model, no extra setup needed.
+export async function transcribeAudio({ base64Audio, mimeType }) {
+  const key = await getValidApiKey();
+  const raw = await callGemini(key, {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          {
+            text: 'Transcribe this audio to plain text. Output ONLY the transcribed words, nothing else — no quotes, no notes.',
+          },
+          { inline_data: { mime_type: mimeType, data: base64Audio } },
+        ],
+      },
+    ],
+  });
+  return raw.trim();
+}
