@@ -124,7 +124,7 @@ export default function HomeScreen() {
             ? 'Your API key expired after 24 hours. Please go to Settings and generate/save your key again to keep chatting.'
             : e.message === 'QUOTA_EXCEEDED'
             ? 'Your free API key has reached its usage limit. Please generate a new API key in Settings to keep chatting.'
-            : "Sorry, I couldn't process that. Please try again.",
+            : `Debug error: ${e.message}`,
       });
     } finally {
       setSending(false);
@@ -166,7 +166,7 @@ export default function HomeScreen() {
             ? 'Your API key expired after 24 hours. Please go to Settings and generate/save your key again to keep chatting.'
             : e.message === 'QUOTA_EXCEEDED'
             ? 'Your free API key has reached its usage limit. Please generate a new API key in Settings to keep chatting.'
-            : "Sorry, I couldn't read that image. Please try again.",
+            : `Debug error: ${e.message}`,
       });
     } finally {
       setSending(false);
@@ -288,6 +288,13 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: radius.sm,
     marginBottom: spacing.xs,
+  },
+  aiIllustration: {
+    width: '100%',
+    height: 200,
+    borderRadius: radius.sm,
+    marginTop: spacing.sm,
+    backgroundColor: colors.surface,
   },
   typingRow: {
     flexDirection: 'row',
