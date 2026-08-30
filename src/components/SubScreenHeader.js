@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     flex: 1,
     textAlign: 'center',
-    marginRight: 40, // balances the back button so title stays centered
+    marginRight: 40,
   },
   spacer: {
     width: 40,
