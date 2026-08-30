@@ -8,6 +8,7 @@ import ScreenBackground from './src/components/ScreenBackground';
 import { colors } from './src/theme/theme';
 import { ActivityIndicator } from 'react-native';
 import { ensureSignedIn } from './src/services/authService';
+import { initAds } from './src/services/adsService';
 
 const RootStack = createNativeStackNavigator();
 
@@ -16,6 +17,7 @@ export default function App() {
   const [onboarded, setOnboarded] = useState(false);
 
   useEffect(() => {
+    initAds();
     (async () => {
       // Sign the device in anonymously with Firebase first — this gives every
       // user a stable, unique ID that the leaderboard is keyed on. It happens
@@ -52,4 +54,4 @@ export default function App() {
       </RootStack.Navigator>
     </NavigationContainer>
   );
-          }
+        }
