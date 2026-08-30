@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/main/HomeScreen';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
-import SettingsScreen from '../screens/main/SettingsScreen';
+import SettingsStack from './SettingsStack';
 import { colors } from '../theme/theme';
 
 const Tab = createBottomTabNavigator();
@@ -37,7 +37,7 @@ export default function MainTabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Leaderboard" component={LeaderboardScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen name="Settings" component={SettingsStack} />
     </Tab.Navigator>
   );
 }
