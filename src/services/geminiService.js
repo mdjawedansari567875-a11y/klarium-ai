@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Current Gemini flash model — text + photo understanding, no image generation
 // (image generation requires a billed Google Cloud account, so we keep this
 // app fully usable on a free API key).
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const KEY_STORAGE = 'klarium_api_key';
