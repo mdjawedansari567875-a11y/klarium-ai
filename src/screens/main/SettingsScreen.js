@@ -4,17 +4,17 @@ import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 
-const SUPPORT_EMAIL = 'amdjawed753@gmail.com';
+const SUPPORT_EMAIL = 'klariumai@gmail.com';
 
 export default function SettingsScreen({ navigation }) {
-  const openSupportEmail = async () => {
+  const openSupportEmail = () => {
     const url = `mailto:${SUPPORT_EMAIL}?subject=KLARIUM AI Support`;
-    const canOpen = await Linking.canOpenURL(url);
-    if (canOpen) {
-      Linking.openURL(url);
-    } else {
+    // Skip the canOpenURL check — on some Android versions it incorrectly
+    // reports mail apps as unavailable even when Gmail is installed.
+    // openURL itself works fine since mailto is a system-recognized scheme.
+    Linking.openURL(url).catch(() => {
       Alert.alert('Contact Support', SUPPORT_EMAIL);
-    }
+    });
   };
 
   const MenuRow = ({ icon, title, subtitle, onPress }) => (
