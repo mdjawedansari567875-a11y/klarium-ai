@@ -16,15 +16,36 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.carfam.klariumai"
+      "bundleIdentifier": "com.carfam.klariumai",
+      "infoPlist": {
+        "NSCameraUsageDescription": "KLARIUM AI uses the camera so you can take a photo of a question and get it explained.",
+        "NSMicrophoneUsageDescription": "KLARIUM AI uses the microphone so you can speak your question instead of typing it.",
+        "NSPhotoLibraryUsageDescription": "KLARIUM AI needs access to your photos so you can send a picture of a question."
+      }
     },
     "android": {
       "package": "com.carfam.klariumai",
       "adaptiveIcon": {
         "foregroundImage": "./assets/klarium-adaptive-icon-foreground.png",
         "backgroundColor": "#0B0B14"
-      }
+      },
+      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE"]
     },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "KLARIUM AI needs access to your photos so you can send a picture of a question.",
+          "cameraPermission": "KLARIUM AI uses the camera so you can take a photo of a question and get it explained."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "KLARIUM AI uses the microphone so you can speak your question instead of typing it."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "e9bfe1bb-4e36-44bc-92ec-07951cbf2811"
