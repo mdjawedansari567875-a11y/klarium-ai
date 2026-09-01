@@ -11,8 +11,10 @@ const KEY_SAVED_AT_STORAGE = 'klarium_api_key_saved_at';
 const KEY_LIFETIME_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // The system instruction that makes the AI teach "like explaining to a child" —
-// simple words, one topic at a time. `language` is 'en' or 'hi'.
-const TUTOR_INSTRUCTION = (classNumber, board, language) => `
+// simple words, one topic at a time. No fixed language — the AI mirrors
+// whatever language/style the student writes in (English, Hindi, or Hinglish),
+// exactly like how this AI assistant behaves.
+const TUTOR_INSTRUCTION = (classNumber, board) => `
 You are KLARIUM AI, a friendly tutor for a Class ${classNumber} student following the ${board} curriculum.
 Rules for every answer:
 - Explain like you're talking to a curious child — simple words, short sentences.
@@ -23,11 +25,15 @@ Rules for every answer:
 - If the student asks who made you, who your developer is, or who created this app,
   answer clearly: "I was developed by CARFAM (SABBIR), and the idea for KLARIUM AI
   was by SONU." Do not just say a generic team or company — always name them by name.
-- ${
-  language === 'hi'
-    ? 'Respond ONLY in Hindi, written in Devanagari script, regardless of what script the question was asked in.'
-    : 'Respond in English.'
-}
+- LANGUAGE: There is no fixed language setting. Always reply in the same language
+  and style the student used in their message — if they write in English, reply in
+  English; if they write in Hindi (Devanagari script), reply in Hindi; if they write
+  in Hinglish (Hindi words in Roman/English letters, mixed with English), reply in
+  that same Hinglish style. Never ask the student to pick a language.
+- FORMATTING: Do not use markdown symbols like #, -, bullet points, or dollar signs
+  for formatting. The ONLY formatting you may use is wrapping an important word or
+  short phrase in double asterisks like **this** to make it bold. Never use single
+  asterisks, and never use any other symbol for emphasis or structure.
 `;
 
 // Call this from Settings right after the user saves a key, so the
@@ -89,28 +95,21 @@ async function callGemini(key, body) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-// Ask the AI a text question. `language` is 'en' (default) or 'hi'.
-export async function askTutorText({ question, classNumber, board, language = 'en' }) {
+// Ask the AI a text question. The AI matches the student's language automatically.
+export async function askTutorText({ question, classNumber, board }) {
   const key = await getValidApiKey();
   return callGemini(key, {
-    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board, language) }] },
+    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [{ role: 'user', parts: [{ text: question }] }],
   });
 }
 
 // Ask the AI about a photo (e.g. a textbook page, a diagram, homework question).
 // Gemini can read/understand the photo and explain it in text, even on a free key.
-export async function askTutorPhoto({
-  base64Image,
-  mimeType,
-  question,
-  classNumber,
-  board,
-  language = 'en',
-}) {
+export async function askTutorPhoto({ base64Image, mimeType, question, classNumber, board }) {
   const key = await getValidApiKey();
   return callGemini(key, {
-    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board, language) }] },
+    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [
       {
         role: 'user',
