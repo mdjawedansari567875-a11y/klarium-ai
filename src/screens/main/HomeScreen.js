@@ -14,14 +14,15 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
+import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import TestModal from '../../components/TestModal';
 import TutorialOverlay from '../../components/TutorialOverlay';
 import AttachmentSheet from '../../components/AttachmentSheet';
-import BannerAdView from '../../components/BannerAdView';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
+import { tapFeedback } from '../../utils/haptics';
 import {
   askTutorText,
   askTutorPhoto,
@@ -37,15 +38,18 @@ import {
   saveTestScore,
 } from '../../services/progressService';
 
+const CHAT_HISTORY_KEY = 'klarium_chat_history';
+const WELCOME_MESSAGE = {
+  id: 'welcome',
+  role: 'ai',
+  text: "Hi! I'm KLARIUM AI 🌟 Ask me anything from your syllabus, or send a photo of a question and I'll explain it simply.",
+};
+
 export default function HomeScreen() {
   const [profile, setProfile] = useState(null);
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      role: 'ai',
-      text: "Hi! I'm KLARIUM AI 🌟 Ask me anything from your syllabus, or send a photo of a question and I'll explain it simply.",
-    },
-  ]);
+  const [language, setLanguage] = useState('en');
+  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [testVisible, setTestVisible] = useState(false);
@@ -62,6 +66,22 @@ export default function HomeScreen() {
     (async () => {
       const raw = await AsyncStorage.getItem('klarium_profile');
       if (raw) setProfile(JSON.parse(raw));
+
+      const savedLanguage = await AsyncStorage.getItem('klarium_language');
+      if (savedLanguage) setLanguage(savedLanguage);
+
+      // Restore chat history so it survives closing/reopening the app.
+      const historyRaw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+      if (historyRaw) {
+        try {
+          const parsed = JSON.parse(historyRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+          }
+        } catch {}
+      }
+      setHistoryLoaded(true);
+
       await recordActiveDay();
       await checkWeeklyTest();
 
@@ -71,6 +91,13 @@ export default function HomeScreen() {
       }
     })();
   }, []);
+
+  // Persist chat history every time it changes, once the initial load is done
+  // (avoids overwriting saved history with the default welcome message).
+  useEffect(() => {
+    if (!historyLoaded) return;
+    AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages)).catch(() => {});
+  }, [messages, historyLoaded]);
 
   const handleTutorialDone = async () => {
     setTutorialVisible(false);
@@ -130,6 +157,7 @@ export default function HomeScreen() {
   const sendText = async () => {
     const question = input.trim();
     if (!question || sending) return;
+    tapFeedback();
     setInput('');
     pushMessage({ id: Date.now() + '-u', role: 'user', text: question });
     setSending(true);
@@ -138,6 +166,7 @@ export default function HomeScreen() {
         question,
         classNumber: profile?.classNumber,
         board: profile?.board,
+        language,
       });
       pushMessage({ id: Date.now() + '-ai', role: 'ai', text: answer });
       await recordTopic(question.slice(0, 80));
@@ -159,6 +188,7 @@ export default function HomeScreen() {
         question: 'Please explain what is shown in this image, simply.',
         classNumber: profile?.classNumber,
         board: profile?.board,
+        language,
       });
       pushMessage({ id: Date.now() + '-ai-img', role: 'ai', text: answer });
       await recordTopic('photo question');
@@ -201,6 +231,7 @@ export default function HomeScreen() {
   // student can review (or edit) it before sending — just like a voice note
   // that becomes editable text.
   const handleMicPress = async () => {
+    tapFeedback();
     if (isRecording) {
       setIsRecording(false);
       const recording = recordingRef.current;
@@ -239,6 +270,12 @@ export default function HomeScreen() {
     setIsRecording(true);
   };
 
+  const speakMessage = (text) => {
+    tapFeedback();
+    Speech.stop();
+    Speech.speak(text, { language: language === 'hi' ? 'hi-IN' : 'en-US' });
+  };
+
   const renderItem = useCallback(
     ({ item }) => (
       <View
@@ -249,9 +286,15 @@ export default function HomeScreen() {
       >
         {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
         {item.text ? <Text style={styles.bubbleText}>{item.text}</Text> : null}
+        {item.role === 'ai' && item.text ? (
+          <Pressable style={styles.speakButton} onPress={() => speakMessage(item.text)}>
+            <Ionicons name="volume-medium-outline" size={16} color={colors.gold} />
+            <Text style={styles.speakLabel}>Listen</Text>
+          </Pressable>
+        ) : null}
       </View>
     ),
-    []
+    [language]
   );
 
   return (
@@ -282,11 +325,15 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <BannerAdView />
-
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.inputRow}>
-          <Pressable style={styles.iconButton} onPress={() => setAttachmentVisible(true)}>
+          <Pressable
+            style={styles.iconButton}
+            onPress={() => {
+              tapFeedback();
+              setAttachmentVisible(true);
+            }}
+          >
             <Ionicons name="image-outline" size={22} color={colors.gold} />
           </Pressable>
           <TextInput
@@ -375,6 +422,17 @@ const styles = StyleSheet.create({
     height: 180,
     borderRadius: radius.sm,
     marginBottom: spacing.xs,
+  },
+  speakButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    gap: 4,
+    alignSelf: 'flex-start',
+  },
+  speakLabel: {
+    ...typography.caption,
+    color: colors.gold,
   },
   typingRow: {
     flexDirection: 'row',
