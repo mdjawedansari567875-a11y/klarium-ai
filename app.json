@@ -46,10 +46,9 @@
         }
       ],
       [
-        "react-native-google-mobile-ads",
+        "expo-notifications",
         {
-          "androidAppId": "ca-app-pub-4588188976164551~1893143462",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+          "color": "#D4AF37"
         }
       ]
     ],
