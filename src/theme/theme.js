@@ -47,29 +47,29 @@ export const radius = {
 
 export const typography = {
   displayHeavy: {
+    fontFamily: 'Poppins_800ExtraBold',
     fontSize: 34,
-    fontWeight: '800',
     letterSpacing: 1.2,
     color: colors.textPrimary,
   },
   h1: {
+    fontFamily: 'Poppins_700Bold',
     fontSize: 26,
-    fontWeight: '700',
     color: colors.textPrimary,
   },
   h2: {
+    fontFamily: 'Poppins_600SemiBold',
     fontSize: 20,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   body: {
+    fontFamily: 'Poppins_400Regular',
     fontSize: 15,
-    fontWeight: '400',
     color: colors.textSecondary,
   },
   caption: {
+    fontFamily: 'Poppins_600SemiBold',
     fontSize: 12,
-    fontWeight: '500',
     color: colors.textMuted,
     letterSpacing: 0.5,
   },
