@@ -21,6 +21,7 @@ import ScreenBackground from '../../components/ScreenBackground';
 import TestModal from '../../components/TestModal';
 import TutorialOverlay from '../../components/TutorialOverlay';
 import AttachmentSheet from '../../components/AttachmentSheet';
+import FormattedText from '../../components/FormattedText';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { tapFeedback } from '../../utils/haptics';
 import {
@@ -45,9 +46,14 @@ const WELCOME_MESSAGE = {
   text: "Hi! I'm KLARIUM AI 🌟 Ask me anything from your syllabus, or send a photo of a question and I'll explain it simply.",
 };
 
+// Used only to pick a voice for "Listen" — checks if the text contains
+// Devanagari characters (Hindi script) to decide which speech language to use.
+function detectSpeechLanguage(text) {
+  return /[\u0900-\u097F]/.test(text) ? 'hi-IN' : 'en-US';
+}
+
 export default function HomeScreen() {
   const [profile, setProfile] = useState(null);
-  const [language, setLanguage] = useState('en');
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
@@ -66,9 +72,6 @@ export default function HomeScreen() {
     (async () => {
       const raw = await AsyncStorage.getItem('klarium_profile');
       if (raw) setProfile(JSON.parse(raw));
-
-      const savedLanguage = await AsyncStorage.getItem('klarium_language');
-      if (savedLanguage) setLanguage(savedLanguage);
 
       // Restore chat history so it survives closing/reopening the app.
       const historyRaw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
@@ -166,7 +169,6 @@ export default function HomeScreen() {
         question,
         classNumber: profile?.classNumber,
         board: profile?.board,
-        language,
       });
       pushMessage({ id: Date.now() + '-ai', role: 'ai', text: answer });
       await recordTopic(question.slice(0, 80));
@@ -188,7 +190,6 @@ export default function HomeScreen() {
         question: 'Please explain what is shown in this image, simply.',
         classNumber: profile?.classNumber,
         board: profile?.board,
-        language,
       });
       pushMessage({ id: Date.now() + '-ai-img', role: 'ai', text: answer });
       await recordTopic('photo question');
@@ -273,7 +274,9 @@ export default function HomeScreen() {
   const speakMessage = (text) => {
     tapFeedback();
     Speech.stop();
-    Speech.speak(text, { language: language === 'hi' ? 'hi-IN' : 'en-US' });
+    // Strip ** markers before speaking so the voice doesn't say "asterisk asterisk".
+    const plain = text.replace(/\*\*/g, '');
+    Speech.speak(plain, { language: detectSpeechLanguage(text) });
   };
 
   const renderItem = useCallback(
@@ -285,7 +288,7 @@ export default function HomeScreen() {
         ]}
       >
         {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
-        {item.text ? <Text style={styles.bubbleText}>{item.text}</Text> : null}
+        {item.text ? <FormattedText text={item.text} style={styles.bubbleText} /> : null}
         {item.role === 'ai' && item.text ? (
           <Pressable style={styles.speakButton} onPress={() => speakMessage(item.text)}>
             <Ionicons name="volume-medium-outline" size={16} color={colors.gold} />
@@ -294,7 +297,7 @@ export default function HomeScreen() {
         ) : null}
       </View>
     ),
-    [language]
+    []
   );
 
   return (
