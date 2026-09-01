@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Current Gemini flash model — text + photo understanding, no image generation
 // (image generation requires a billed Google Cloud account, so we keep this
-// app fully usable on a free API key).
+// app fully usable on a free API key). Confirmed working well by the user.
 const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -11,8 +11,8 @@ const KEY_SAVED_AT_STORAGE = 'klarium_api_key_saved_at';
 const KEY_LIFETIME_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // The system instruction that makes the AI teach "like explaining to a child" —
-// simple words, one topic at a time.
-const TUTOR_INSTRUCTION = (classNumber, board) => `
+// simple words, one topic at a time. `language` is 'en' or 'hi'.
+const TUTOR_INSTRUCTION = (classNumber, board, language) => `
 You are KLARIUM AI, a friendly tutor for a Class ${classNumber} student following the ${board} curriculum.
 Rules for every answer:
 - Explain like you're talking to a curious child — simple words, short sentences.
@@ -23,6 +23,11 @@ Rules for every answer:
 - If the student asks who made you, who your developer is, or who created this app,
   answer clearly: "I was developed by CARFAM (SABBIR), and the idea for KLARIUM AI
   was by SONU." Do not just say a generic team or company — always name them by name.
+- ${
+  language === 'hi'
+    ? 'Respond ONLY in Hindi, written in Devanagari script, regardless of what script the question was asked in.'
+    : 'Respond in English.'
+}
 `;
 
 // Call this from Settings right after the user saves a key, so the
@@ -84,21 +89,28 @@ async function callGemini(key, body) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-// Ask the AI a text question.
-export async function askTutorText({ question, classNumber, board }) {
+// Ask the AI a text question. `language` is 'en' (default) or 'hi'.
+export async function askTutorText({ question, classNumber, board, language = 'en' }) {
   const key = await getValidApiKey();
   return callGemini(key, {
-    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
+    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board, language) }] },
     contents: [{ role: 'user', parts: [{ text: question }] }],
   });
 }
 
 // Ask the AI about a photo (e.g. a textbook page, a diagram, homework question).
 // Gemini can read/understand the photo and explain it in text, even on a free key.
-export async function askTutorPhoto({ base64Image, mimeType, question, classNumber, board }) {
+export async function askTutorPhoto({
+  base64Image,
+  mimeType,
+  question,
+  classNumber,
+  board,
+  language = 'en',
+}) {
   const key = await getValidApiKey();
   return callGemini(key, {
-    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
+    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board, language) }] },
     contents: [
       {
         role: 'user',
