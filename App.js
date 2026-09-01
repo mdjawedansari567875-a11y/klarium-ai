@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator } from 'react-native';
+import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from '@expo-google-fonts/poppins';
 import OnboardingNavigator from './src/navigation/OnboardingNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import ScreenBackground from './src/components/ScreenBackground';
 import { colors } from './src/theme/theme';
-import { ActivityIndicator } from 'react-native';
 import { ensureSignedIn } from './src/services/authService';
-import { initAds } from './src/services/adsService';
+import { setupStreakReminder } from './src/services/notificationService';
 
 const RootStack = createNativeStackNavigator();
 
@@ -16,8 +17,14 @@ export default function App() {
   const [checking, setChecking] = useState(true);
   const [onboarded, setOnboarded] = useState(false);
 
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
+  });
+
   useEffect(() => {
-    initAds();
     (async () => {
       // Sign the device in anonymously with Firebase first — this gives every
       // user a stable, unique ID that the leaderboard is keyed on. It happens
@@ -30,13 +37,17 @@ export default function App() {
         console.warn('Firebase sign-in failed:', e.message);
       }
 
+      // Local daily reminder so students don't lose their streak. Free,
+      // no backend required.
+      setupStreakReminder().catch(() => {});
+
       const flag = await AsyncStorage.getItem('klarium_onboarded');
       setOnboarded(flag === 'true');
       setChecking(false);
     })();
   }, []);
 
-  if (checking) {
+  if (checking || !fontsLoaded) {
     return (
       <ScreenBackground style={{ alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.gold} size="large" />
@@ -54,4 +65,4 @@ export default function App() {
       </RootStack.Navigator>
     </NavigationContainer>
   );
-        }
+}
