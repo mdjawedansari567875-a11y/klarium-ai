@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, radius, typography, shadow } from '../theme/theme';
+import { tapFeedback } from '../utils/haptics';
 
 // A single consistent "premium" call-to-action button.
 // variant: 'gradient' (default, filled violet->blue) or 'outline' (gold border, transparent)
@@ -13,10 +14,15 @@ export default function PremiumButton({
   variant = 'gradient',
   style,
 }) {
+  const handlePress = () => {
+    tapFeedback();
+    onPress?.();
+  };
+
   if (variant === 'outline') {
     return (
       <Pressable
-        onPress={onPress}
+        onPress={handlePress}
         disabled={disabled || loading}
         style={({ pressed }) => [
           styles.outline,
@@ -36,7 +42,7 @@ export default function PremiumButton({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled || loading}
       style={({ pressed }) => [pressed && { opacity: 0.85 }, style]}
     >
@@ -66,7 +72,6 @@ const styles = StyleSheet.create({
   label: {
     ...typography.h2,
     color: '#FFFFFF',
-    fontWeight: '700',
   },
   outline: {
     borderWidth: 1.5,
@@ -80,7 +85,6 @@ const styles = StyleSheet.create({
   outlineLabel: {
     ...typography.h2,
     color: colors.gold,
-    fontWeight: '700',
   },
   disabled: {
     opacity: 0.4,
