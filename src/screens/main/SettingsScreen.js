@@ -3,18 +3,24 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Linking, Alert } from 'r
 import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
+import { tapFeedback } from '../../utils/haptics';
 
 const SUPPORT_EMAIL = 'klariumai@gmail.com';
 
 export default function SettingsScreen({ navigation }) {
   const openSupportEmail = () => {
+    tapFeedback();
     const url = `mailto:${SUPPORT_EMAIL}?subject=KLARIUM AI Support`;
     // Skip the canOpenURL check — on some Android versions it incorrectly
     // reports mail apps as unavailable even when Gmail is installed.
-    // openURL itself works fine since mailto is a system-recognized scheme.
     Linking.openURL(url).catch(() => {
       Alert.alert('Contact Support', SUPPORT_EMAIL);
     });
+  };
+
+  const go = (screen) => {
+    tapFeedback();
+    navigation.navigate(screen);
   };
 
   const MenuRow = ({ icon, title, subtitle, onPress }) => (
@@ -39,14 +45,33 @@ export default function SettingsScreen({ navigation }) {
           icon="key"
           title="Gemini API Key"
           subtitle="Connect or update your AI key"
-          onPress={() => navigation.navigate('ApiKeyScreen')}
+          onPress={() => go('ApiKeyScreen')}
+        />
+
+        <MenuRow
+          icon="language"
+          title="Language"
+          subtitle="Choose English or Hindi"
+          onPress={() => go('LanguageScreen')}
         />
 
         <MenuRow
           icon="sparkles"
           title="Developer & Idea"
           subtitle="About this app"
-          onPress={() => navigation.navigate('DeveloperIdeaScreen')}
+          onPress={() => go('DeveloperIdeaScreen')}
+        />
+
+        <MenuRow
+          icon="shield-checkmark-outline"
+          title="Privacy Policy"
+          onPress={() => go('PrivacyPolicyScreen')}
+        />
+
+        <MenuRow
+          icon="document-text-outline"
+          title="Terms of Service"
+          onPress={() => go('TermsScreen')}
         />
 
         <MenuRow
