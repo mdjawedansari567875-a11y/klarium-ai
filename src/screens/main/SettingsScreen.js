@@ -49,13 +49,6 @@ export default function SettingsScreen({ navigation }) {
         />
 
         <MenuRow
-          icon="language"
-          title="Language"
-          subtitle="Choose English or Hindi"
-          onPress={() => go('LanguageScreen')}
-        />
-
-        <MenuRow
           icon="sparkles"
           title="Developer & Idea"
           subtitle="About this app"
