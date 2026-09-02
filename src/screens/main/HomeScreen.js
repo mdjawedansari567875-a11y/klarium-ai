@@ -67,6 +67,10 @@ export default function HomeScreen() {
   const [transcribing, setTranscribing] = useState(false);
   const listRef = useRef(null);
   const recordingRef = useRef(null);
+  // Tracks the conversation in the format Gemini expects, so the AI
+  // remembers what was already discussed instead of starting fresh every
+  // message. Capped to the last 20 turns to keep requests reasonably sized.
+  const historyRef = useRef([]);
 
   useEffect(() => {
     (async () => {
@@ -80,6 +84,15 @@ export default function HomeScreen() {
           const parsed = JSON.parse(historyRaw);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setMessages(parsed);
+            // Rebuild the AI's conversation memory from the restored messages
+            // (text-only turns), so context carries over across app restarts.
+            historyRef.current = parsed
+              .filter((m) => m.id !== 'welcome' && m.text)
+              .map((m) => ({
+                role: m.role === 'user' ? 'user' : 'model',
+                parts: [{ text: m.text }],
+              }))
+              .slice(-20);
           }
         } catch {}
       }
@@ -169,8 +182,14 @@ export default function HomeScreen() {
         question,
         classNumber: profile?.classNumber,
         board: profile?.board,
+        history: historyRef.current,
       });
       pushMessage({ id: Date.now() + '-ai', role: 'ai', text: answer });
+      historyRef.current = [
+        ...historyRef.current,
+        { role: 'user', parts: [{ text: question }] },
+        { role: 'model', parts: [{ text: answer }] },
+      ].slice(-20);
       await recordTopic(question.slice(0, 80));
     } catch (e) {
       pushErrorMessage('-err', "Sorry, I couldn't process that. Please try again.", e);
@@ -184,14 +203,23 @@ export default function HomeScreen() {
     pushMessage({ id: Date.now() + '-u-img', role: 'user', image: asset.uri });
     setSending(true);
     try {
+      const photoQuestion = 'Please explain what is shown in this image, simply.';
       const answer = await askTutorPhoto({
         base64Image: asset.base64,
         mimeType: 'image/jpeg',
-        question: 'Please explain what is shown in this image, simply.',
+        question: photoQuestion,
         classNumber: profile?.classNumber,
         board: profile?.board,
+        history: historyRef.current,
       });
       pushMessage({ id: Date.now() + '-ai-img', role: 'ai', text: answer });
+      // The image itself isn't stored in history (too large) — just a text
+      // placeholder so future turns know a photo question happened here.
+      historyRef.current = [
+        ...historyRef.current,
+        { role: 'user', parts: [{ text: '[Sent a photo] ' + photoQuestion }] },
+        { role: 'model', parts: [{ text: answer }] },
+      ].slice(-20);
       await recordTopic('photo question');
     } catch (e) {
       pushErrorMessage('-err-img', "Sorry, I couldn't read that image. Please try again.", e);
