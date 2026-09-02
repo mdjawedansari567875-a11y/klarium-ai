@@ -95,22 +95,33 @@ async function callGemini(key, body) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-// Ask the AI a text question. The AI matches the student's language automatically.
-export async function askTutorText({ question, classNumber, board }) {
+// Ask the AI a text question. `history` is the prior conversation (array of
+// {role: 'user'|'model', parts: [{text}]}), so the AI remembers what was
+// already discussed instead of treating every message as a fresh start.
+export async function askTutorText({ question, classNumber, board, history = [] }) {
   const key = await getValidApiKey();
   return callGemini(key, {
     systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
-    contents: [{ role: 'user', parts: [{ text: question }] }],
+    contents: [...history, { role: 'user', parts: [{ text: question }] }],
   });
 }
 
 // Ask the AI about a photo (e.g. a textbook page, a diagram, homework question).
 // Gemini can read/understand the photo and explain it in text, even on a free key.
-export async function askTutorPhoto({ base64Image, mimeType, question, classNumber, board }) {
+// `history` works the same way as in askTutorText.
+export async function askTutorPhoto({
+  base64Image,
+  mimeType,
+  question,
+  classNumber,
+  board,
+  history = [],
+}) {
   const key = await getValidApiKey();
   return callGemini(key, {
     systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [
+      ...history,
       {
         role: 'user',
         parts: [
