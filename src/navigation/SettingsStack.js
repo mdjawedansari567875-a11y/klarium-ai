@@ -5,6 +5,7 @@ import ApiKeyScreen from '../screens/settings/ApiKeyScreen';
 import DeveloperIdeaScreen from '../screens/settings/DeveloperIdeaScreen';
 import PrivacyPolicyScreen from '../screens/settings/PrivacyPolicyScreen';
 import TermsScreen from '../screens/settings/TermsScreen';
+import GoPremiumScreen from '../screens/settings/GoPremiumScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -16,6 +17,7 @@ export default function SettingsStack() {
       <Stack.Screen name="DeveloperIdeaScreen" component={DeveloperIdeaScreen} />
       <Stack.Screen name="PrivacyPolicyScreen" component={PrivacyPolicyScreen} />
       <Stack.Screen name="TermsScreen" component={TermsScreen} />
+      <Stack.Screen name="GoPremiumScreen" component={GoPremiumScreen} />
     </Stack.Navigator>
   );
 }
