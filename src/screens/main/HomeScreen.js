@@ -17,6 +17,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import ScreenBackground from '../../components/ScreenBackground';
 import TestModal from '../../components/TestModal';
 import TutorialOverlay from '../../components/TutorialOverlay';
@@ -24,6 +25,8 @@ import AttachmentSheet from '../../components/AttachmentSheet';
 import FormattedText from '../../components/FormattedText';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { tapFeedback } from '../../utils/haptics';
+import { getBannerAdUnitId } from '../../services/adsService';
+import { getIsPremium, subscribeToPremiumStatus } from '../../services/premiumService';
 import {
   askTutorText,
   askTutorPhoto,
@@ -66,6 +69,7 @@ export default function HomeScreen() {
   const [attachmentVisible, setAttachmentVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [isPremium, setIsPremiumState] = useState(false);
   const listRef = useRef(null);
   const recordingRef = useRef(null);
   // Tracks the conversation in the format Gemini expects, so the AI
@@ -107,6 +111,14 @@ export default function HomeScreen() {
         setTutorialVisible(true);
       }
     })();
+  }, []);
+
+  // Load premium status on mount, and keep it in sync if it changes anywhere
+  // else in the app (e.g. after a purchase or a dev toggle in Settings).
+  useEffect(() => {
+    getIsPremium().then(setIsPremiumState);
+    const unsubscribe = subscribeToPremiumStatus(setIsPremiumState);
+    return unsubscribe;
   }, []);
 
   // Persist chat history every time it changes, once the initial load is done
@@ -324,4 +336,256 @@ export default function HomeScreen() {
         ]}
       >
         {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
-        {item.text ? <FormattedText text={item.text} style={styles.bubbleText} />
+        {item.text ? <FormattedText text={item.text} style={styles.bubbleText} /> : null}
+        {item.role === 'ai' && item.text ? (
+          <Pressable style={styles.speakButton} onPress={() => speakMessage(item.text)}>
+            <Ionicons name="volume-medium-outline" size={16} color={colors.gold} />
+            <Text style={styles.speakLabel}>Listen</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    );
+  }, []);
+
+  return (
+    <ScreenBackground style={{ flex: 1 }}>
+      <View style={styles.header}>
+        <Text style={typography.h1}>
+          {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
+        </Text>
+        <Text style={styles.headerSubtitle}>
+          {profile ? `Class ${profile.classNumber} · ${profile.board}` : 'Your AI Tutor'}
+        </Text>
+      </View>
+
+      <FlatList
+        ref={listRef}
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.chatList}
+      />
+
+      {(sending || transcribing) && (
+        <View style={styles.typingRow}>
+          <ActivityIndicator color={colors.gold} size="small" />
+          <Text style={styles.typingText}>
+            {transcribing ? 'Listening to your voice note...' : 'KLARIUM AI is thinking...'}
+          </Text>
+        </View>
+      )}
+
+      {!isPremium && (
+        <View style={styles.adContainer}>
+          <BannerAd
+            unitId={getBannerAdUnitId()}
+            size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+            requestOptions={{ requestNonPersonalizedAdsOnly: true }}
+          />
+        </View>
+      )}
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {pendingImage && (
+          <View style={styles.previewWrapper}>
+            <View style={styles.previewImageContainer}>
+              <Image source={{ uri: pendingImage.uri }} style={styles.previewImage} />
+              <Pressable style={styles.previewRemove} onPress={() => setPendingImage(null)}>
+                <Ionicons name="close" size={14} color="#fff" />
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.inputRow}>
+          <Pressable
+            style={styles.iconButton}
+            onPress={() => {
+              tapFeedback();
+              setAttachmentVisible(true);
+            }}
+          >
+            <Ionicons name="image-outline" size={22} color={colors.gold} />
+          </Pressable>
+          <TextInput
+            value={input}
+            onChangeText={setInput}
+            placeholder={pendingImage ? 'Add a caption (optional)...' : 'Ask me anything...'}
+            placeholderTextColor={colors.textMuted}
+            style={styles.textInput}
+            multiline
+          />
+          <Pressable
+            style={[styles.iconButton, isRecording && styles.iconButtonRecording]}
+            onPress={handleMicPress}
+          >
+            <Ionicons
+              name={isRecording ? 'stop' : 'mic-outline'}
+              size={22}
+              color={isRecording ? '#fff' : colors.gold}
+            />
+          </Pressable>
+          <Pressable style={styles.sendButton} onPress={sendText} disabled={sending}>
+            <Ionicons name="send" size={18} color="#fff" />
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+
+      <TestModal
+        visible={testVisible}
+        loading={testLoading}
+        questions={quiz}
+        onFinish={handleTestFinish}
+      />
+
+      <TutorialOverlay visible={tutorialVisible} onDone={handleTutorialDone} />
+
+      <AttachmentSheet
+        visible={attachmentVisible}
+        onClose={() => setAttachmentVisible(false)}
+        onCamera={openCamera}
+        onGallery={openGallery}
+      />
+    </ScreenBackground>
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerSubtitle: {
+    ...typography.caption,
+    marginTop: 2,
+  },
+  chatList: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  bubble: {
+    maxWidth: '82%',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  bubbleUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: colors.gradientStart,
+  },
+  bubbleAi: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bubbleImageOnly: {
+    padding: 4,
+  },
+  bubbleText: {
+    color: colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  bubbleImage: {
+    width: 180,
+    height: 180,
+    borderRadius: radius.sm,
+    marginBottom: spacing.xs,
+  },
+  speakButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    gap: 4,
+    alignSelf: 'flex-start',
+  },
+  speakLabel: {
+    ...typography.caption,
+    color: colors.gold,
+  },
+  typingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+    gap: spacing.xs,
+  },
+  typingText: {
+    ...typography.caption,
+  },
+  adContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  previewWrapper: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  previewImageContainer: {
+    width: 72,
+    height: 72,
+  },
+  previewImage: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  previewRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonRecording: {
+    backgroundColor: colors.danger,
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    color: colors.textPrimary,
+    maxHeight: 100,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.gradientEnd,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadow.glow,
+  },
+});
