@@ -57,6 +57,7 @@ export default function HomeScreen() {
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
+  const [pendingImage, setPendingImage] = useState(null); // { uri, base64 } picked but not sent yet
   const [sending, setSending] = useState(false);
   const [testVisible, setTestVisible] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -170,59 +171,63 @@ export default function HomeScreen() {
     });
   };
 
+  // Handles sending whatever is currently staged: text only, a pending image
+  // only, or an image with a caption typed alongside it (attach-then-caption
+  // flow — the image is picked first and sits as a preview until the student
+  // taps send).
   const sendText = async () => {
     const question = input.trim();
-    if (!question || sending) return;
+    const imageToSend = pendingImage;
+    if (!question && !imageToSend) return;
+    if (sending) return;
     tapFeedback();
+
     setInput('');
-    pushMessage({ id: Date.now() + '-u', role: 'user', text: question });
+    setPendingImage(null);
+    pushMessage({
+      id: Date.now() + '-u',
+      role: 'user',
+      text: question || undefined,
+      image: imageToSend?.uri,
+    });
     setSending(true);
     try {
-      const answer = await askTutorText({
-        question,
-        classNumber: profile?.classNumber,
-        board: profile?.board,
-        history: historyRef.current,
-      });
+      let answer;
+      if (imageToSend) {
+        const photoQuestion = question || 'Please explain what is shown in this image, simply.';
+        answer = await askTutorPhoto({
+          base64Image: imageToSend.base64,
+          mimeType: 'image/jpeg',
+          question: photoQuestion,
+          classNumber: profile?.classNumber,
+          board: profile?.board,
+          history: historyRef.current,
+        });
+        // The image itself isn't stored in history (too large) — just a text
+        // placeholder so future turns know a photo question happened here.
+        historyRef.current = [
+          ...historyRef.current,
+          { role: 'user', parts: [{ text: '[Sent a photo] ' + photoQuestion }] },
+          { role: 'model', parts: [{ text: answer }] },
+        ].slice(-20);
+        await recordTopic('photo question');
+      } else {
+        answer = await askTutorText({
+          question,
+          classNumber: profile?.classNumber,
+          board: profile?.board,
+          history: historyRef.current,
+        });
+        historyRef.current = [
+          ...historyRef.current,
+          { role: 'user', parts: [{ text: question }] },
+          { role: 'model', parts: [{ text: answer }] },
+        ].slice(-20);
+        await recordTopic(question.slice(0, 80));
+      }
       pushMessage({ id: Date.now() + '-ai', role: 'ai', text: answer });
-      historyRef.current = [
-        ...historyRef.current,
-        { role: 'user', parts: [{ text: question }] },
-        { role: 'model', parts: [{ text: answer }] },
-      ].slice(-20);
-      await recordTopic(question.slice(0, 80));
     } catch (e) {
       pushErrorMessage('-err', "Sorry, I couldn't process that. Please try again.", e);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  // Shared handler for a picked image, whether it came from the camera or the gallery.
-  const handlePickedAsset = async (asset) => {
-    pushMessage({ id: Date.now() + '-u-img', role: 'user', image: asset.uri });
-    setSending(true);
-    try {
-      const photoQuestion = 'Please explain what is shown in this image, simply.';
-      const answer = await askTutorPhoto({
-        base64Image: asset.base64,
-        mimeType: 'image/jpeg',
-        question: photoQuestion,
-        classNumber: profile?.classNumber,
-        board: profile?.board,
-        history: historyRef.current,
-      });
-      pushMessage({ id: Date.now() + '-ai-img', role: 'ai', text: answer });
-      // The image itself isn't stored in history (too large) — just a text
-      // placeholder so future turns know a photo question happened here.
-      historyRef.current = [
-        ...historyRef.current,
-        { role: 'user', parts: [{ text: '[Sent a photo] ' + photoQuestion }] },
-        { role: 'model', parts: [{ text: answer }] },
-      ].slice(-20);
-      await recordTopic('photo question');
-    } catch (e) {
-      pushErrorMessage('-err-img', "Sorry, I couldn't read that image. Please try again.", e);
     } finally {
       setSending(false);
     }
@@ -238,7 +243,8 @@ export default function HomeScreen() {
       quality: 0.6,
     });
     if (result.canceled) return;
-    await handlePickedAsset(result.assets[0]);
+    // Just stage it as a preview — don't send yet, so the student can add a caption.
+    setPendingImage(result.assets[0]);
   };
 
   const openGallery = async () => {
@@ -252,7 +258,7 @@ export default function HomeScreen() {
       quality: 0.6,
     });
     if (result.canceled) return;
-    await handlePickedAsset(result.assets[0]);
+    setPendingImage(result.assets[0]);
   };
 
   // Mic button: first tap starts recording, second tap stops it, transcribes
@@ -307,210 +313,15 @@ export default function HomeScreen() {
     Speech.speak(plain, { language: detectSpeechLanguage(text) });
   };
 
-  const renderItem = useCallback(
-    ({ item }) => (
+  const renderItem = useCallback(({ item }) => {
+    const isImageOnly = !!item.image && !item.text;
+    return (
       <View
         style={[
           styles.bubble,
           item.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
+          isImageOnly && styles.bubbleImageOnly,
         ]}
       >
         {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
-        {item.text ? <FormattedText text={item.text} style={styles.bubbleText} /> : null}
-        {item.role === 'ai' && item.text ? (
-          <Pressable style={styles.speakButton} onPress={() => speakMessage(item.text)}>
-            <Ionicons name="volume-medium-outline" size={16} color={colors.gold} />
-            <Text style={styles.speakLabel}>Listen</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    ),
-    []
-  );
-
-  return (
-    <ScreenBackground style={{ flex: 1 }}>
-      <View style={styles.header}>
-        <Text style={typography.h1}>
-          {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
-        </Text>
-        <Text style={styles.headerSubtitle}>
-          {profile ? `Class ${profile.classNumber} · ${profile.board}` : 'Your AI Tutor'}
-        </Text>
-      </View>
-
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.chatList}
-      />
-
-      {(sending || transcribing) && (
-        <View style={styles.typingRow}>
-          <ActivityIndicator color={colors.gold} size="small" />
-          <Text style={styles.typingText}>
-            {transcribing ? 'Listening to your voice note...' : 'KLARIUM AI is thinking...'}
-          </Text>
-        </View>
-      )}
-
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.inputRow}>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => {
-              tapFeedback();
-              setAttachmentVisible(true);
-            }}
-          >
-            <Ionicons name="image-outline" size={22} color={colors.gold} />
-          </Pressable>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask me anything..."
-            placeholderTextColor={colors.textMuted}
-            style={styles.textInput}
-            multiline
-          />
-          <Pressable
-            style={[styles.iconButton, isRecording && styles.iconButtonRecording]}
-            onPress={handleMicPress}
-          >
-            <Ionicons
-              name={isRecording ? 'stop' : 'mic-outline'}
-              size={22}
-              color={isRecording ? '#fff' : colors.gold}
-            />
-          </Pressable>
-          <Pressable style={styles.sendButton} onPress={sendText} disabled={sending}>
-            <Ionicons name="send" size={18} color="#fff" />
-          </Pressable>
-        </View>
-      </KeyboardAvoidingView>
-
-      <TestModal
-        visible={testVisible}
-        loading={testLoading}
-        questions={quiz}
-        onFinish={handleTestFinish}
-      />
-
-      <TutorialOverlay visible={tutorialVisible} onDone={handleTutorialDone} />
-
-      <AttachmentSheet
-        visible={attachmentVisible}
-        onClose={() => setAttachmentVisible(false)}
-        onCamera={openCamera}
-        onGallery={openGallery}
-      />
-    </ScreenBackground>
-  );
-}
-
-const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerSubtitle: {
-    ...typography.caption,
-    marginTop: 2,
-  },
-  chatList: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-  },
-  bubble: {
-    maxWidth: '82%',
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  bubbleUser: {
-    alignSelf: 'flex-end',
-    backgroundColor: colors.gradientStart,
-  },
-  bubbleAi: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  bubbleText: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    lineHeight: 21,
-  },
-  bubbleImage: {
-    width: 180,
-    height: 180,
-    borderRadius: radius.sm,
-    marginBottom: spacing.xs,
-  },
-  speakButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.sm,
-    gap: 4,
-    alignSelf: 'flex-start',
-  },
-  speakLabel: {
-    ...typography.caption,
-    color: colors.gold,
-  },
-  typingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xs,
-    gap: spacing.xs,
-  },
-  typingText: {
-    ...typography.caption,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: spacing.sm,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconButtonRecording: {
-    backgroundColor: colors.danger,
-  },
-  textInput: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    color: colors.textPrimary,
-    maxHeight: 100,
-  },
-  sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.pill,
-    backgroundColor: colors.gradientEnd,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow.glow,
-  },
-});
+        {item.text ? <FormattedText text={item.text} style={styles.bubbleText} />
