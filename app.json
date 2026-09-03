@@ -52,13 +52,6 @@
         }
       ],
       [
-        "react-native-google-mobile-ads",
-        {
-          "androidAppId": "ca-app-pub-4588188976164551~1893143462",
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "android": {
@@ -74,5 +67,9 @@
         "projectId": "e9bfe1bb-4e36-44bc-92ec-07951cbf2811"
       }
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-4588188976164551~1893143462",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
   }
 }
