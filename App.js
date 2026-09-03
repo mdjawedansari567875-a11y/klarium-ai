@@ -10,6 +10,7 @@ import ScreenBackground from './src/components/ScreenBackground';
 import { colors } from './src/theme/theme';
 import { ensureSignedIn } from './src/services/authService';
 import { setupStreakReminder } from './src/services/notificationService';
+import { initAds } from './src/services/adsService';
 
 const RootStack = createNativeStackNavigator();
 
@@ -25,6 +26,11 @@ export default function App() {
   });
 
   useEffect(() => {
+    // Initialize the ads SDK as soon as the app starts, so the banner ad on
+    // the Home screen is ready to load the first time a non-premium user
+    // opens it (rather than waiting until that screen mounts).
+    initAds();
+
     (async () => {
       // Sign the device in anonymously with Firebase first — this gives every
       // user a stable, unique ID that the leaderboard is keyed on. It happens
@@ -65,4 +71,4 @@ export default function App() {
       </RootStack.Navigator>
     </NavigationContainer>
   );
-}
+        }
