@@ -25,6 +25,7 @@
     },
     "android": {
       "package": "com.carfam.klariumai",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/klarium-adaptive-icon-foreground.png",
         "backgroundColor": "#0B0B14"
@@ -60,7 +61,8 @@
             "kotlinVersion": "1.9.24"
           }
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {
