@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "246389408868",
+    "project_id": "klarium-ai",
+    "storage_bucket": "klarium-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:246389408868:android:610e57c1fa68dcd4ad0b71",
+        "android_client_info": {
+          "package_name": "com.carfam.klariumai"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "246389408868-tu20s438vcgnbv3purp4il10v8okm82v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdt2hnTGyfQTjjHKy1bcMtuNQWgE-wCwM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "246389408868-tu20s438vcgnbv3purp4il10v8okm82v.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
