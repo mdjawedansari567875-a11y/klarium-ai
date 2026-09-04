@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { tapFeedback } from '../../utils/haptics';
+import { getIsPremium, subscribeToPremiumStatus } from '../../services/premiumService';
 
 const SUPPORT_EMAIL = 'klariumai@gmail.com';
 
 export default function SettingsScreen({ navigation }) {
+  const [isPremium, setIsPremium] = useState(false);
+
+  useEffect(() => {
+    getIsPremium().then(setIsPremium);
+    const unsubscribe = subscribeToPremiumStatus(setIsPremium);
+    return unsubscribe;
+  }, []);
+
   const openSupportEmail = () => {
     tapFeedback();
     const url = `mailto:${SUPPORT_EMAIL}?subject=KLARIUM AI Support`;
@@ -23,16 +32,27 @@ export default function SettingsScreen({ navigation }) {
     navigation.navigate(screen);
   };
 
-  const MenuRow = ({ icon, title, subtitle, onPress }) => (
-    <Pressable style={[styles.row, shadow.card]} onPress={onPress}>
-      <View style={styles.rowIconCircle}>
-        <Ionicons name={icon} size={20} color={colors.gold} />
+  const MenuRow = ({ icon, title, subtitle, onPress, highlighted }) => (
+    <Pressable
+      style={[styles.row, shadow.card, highlighted && styles.rowHighlighted]}
+      onPress={onPress}
+    >
+      <View style={[styles.rowIconCircle, highlighted && styles.rowIconCircleHighlighted]}>
+        <Ionicons name={icon} size={20} color={highlighted ? colors.background : colors.gold} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
+        <Text style={[styles.rowTitle, highlighted && styles.rowTitleHighlighted]}>{title}</Text>
+        {subtitle ? (
+          <Text style={[styles.rowSubtitle, highlighted && styles.rowSubtitleHighlighted]}>
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      <Ionicons
+        name="chevron-forward"
+        size={18}
+        color={highlighted ? colors.background : colors.textMuted}
+      />
     </Pressable>
   );
 
@@ -40,6 +60,14 @@ export default function SettingsScreen({ navigation }) {
     <ScreenBackground>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={typography.h1}>Settings</Text>
+
+        <MenuRow
+          icon="sparkles"
+          title={isPremium ? 'Premium Member' : 'Go Premium'}
+          subtitle={isPremium ? 'Thank you for supporting KLARIUM AI' : 'Remove ads and more'}
+          onPress={() => go('GoPremiumScreen')}
+          highlighted={!isPremium}
+        />
 
         <MenuRow
           icon="key"
@@ -94,6 +122,10 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.lg,
   },
+  rowHighlighted: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
   rowIconCircle: {
     width: 40,
     height: 40,
@@ -103,12 +135,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing.md,
   },
+  rowIconCircleHighlighted: {
+    backgroundColor: 'rgba(0,0,0,0.15)',
+  },
   rowTitle: {
     ...typography.h2,
     fontSize: 16,
   },
+  rowTitleHighlighted: {
+    color: colors.background,
+  },
   rowSubtitle: {
     ...typography.caption,
     marginTop: 2,
+  },
+  rowSubtitleHighlighted: {
+    color: colors.background,
+    opacity: 0.75,
   },
 });
