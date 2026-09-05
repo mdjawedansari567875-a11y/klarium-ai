@@ -22,11 +22,6 @@ export default function DeveloperIdeaScreen({ navigation }) {
             <Text style={styles.label}>DEVELOPED BY</Text>
             <Text style={styles.value}>CARFAM (SABBIR)</Text>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <Text style={styles.label}>IDEA BY</Text>
-            <Text style={styles.value}>SONU</Text>
-          </View>
         </View>
       </View>
     </ScreenBackground>
