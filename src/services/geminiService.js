@@ -103,6 +103,7 @@ export async function askTutorText({ question, classNumber, board, history = [] 
   return callGemini(key, {
     systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [...history, { role: 'user', parts: [{ text: question }] }],
+    generationConfig: { maxOutputTokens: 4096 },
   });
 }
 
