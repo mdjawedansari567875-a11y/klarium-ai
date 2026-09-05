@@ -159,7 +159,12 @@ export default function HomeScreen() {
   const handleTestFinish = async (score, total) => {
     setTestVisible(false);
     const savedProfile = JSON.parse((await AsyncStorage.getItem('klarium_profile')) || '{}');
-    await saveTestScore({ name: savedProfile.name || 'Student', score, total });
+    await saveTestScore({
+      name: savedProfile.name || 'Student',
+      photoURL: savedProfile.photoURL,
+      score,
+      total,
+    });
     await markTestShown();
   };
 
