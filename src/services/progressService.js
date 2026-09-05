@@ -79,11 +79,12 @@ export async function markTestShown() {
 // Every user's app instance reads this same collection, so everyone
 // sees everyone else's scores in real time.
 
-export async function saveTestScore({ name, score, total }) {
+export async function saveTestScore({ name, score, total, photoURL }) {
   const uid = getCurrentUid();
   if (!uid) return; // not signed in yet — score simply won't sync this time
   await setDoc(doc(db, 'leaderboard', uid), {
     name: name || 'Student',
+    photoURL: photoURL || null,
     score,
     total,
     date: todayKey(),
