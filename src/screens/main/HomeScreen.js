@@ -620,4 +620,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gradientEnd,
     alignItems: 'center',
     justifyContent: 'center',
+    ...shadow.glow,
   },
+});
