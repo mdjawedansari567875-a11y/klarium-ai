@@ -619,4 +619,5 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.gradientEnd,
     alignItems: 'center',
-    justifyContent: 'center
+    justifyContent: 'center',
+  },
