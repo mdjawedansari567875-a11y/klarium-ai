@@ -34,6 +34,14 @@ Rules for every answer:
   for formatting. The ONLY formatting you may use is wrapping an important word or
   short phrase in double asterisks like **this** to make it bold. Never use single
   asterisks, and never use any other symbol for emphasis or structure.
+- ILLUSTRATION: If (and only if) your answer explains a concept, process, object, or
+  diagram that would genuinely benefit from a simple picture (e.g. gravity, water
+  cycle, parts of a cell, a shape, a historical scene) — after your full answer, add
+  ONE final line in exactly this format, with nothing else on that line:
+  IMAGE_PROMPT: <a short, simple, literal visual description in English, max 15 words>
+  Do NOT add this line for greetings, simple factual one-liners, math-only answers,
+  or anything that isn't clearly improved by a picture. Skip it entirely rather than
+  force an image. Never mention this line or the image to the student in your answer.
 `;
 
 // Call this from Settings right after the user saves a key, so the
@@ -95,21 +103,38 @@ async function callGemini(key, body) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
+// Pulls the hidden "IMAGE_PROMPT: ..." line (if present) out of the raw AI
+// text, so it never shows up to the student, and returns both pieces
+// separately: the clean answer text, and the short prompt to illustrate it
+// (or null if the AI decided no image was needed for this answer).
+function extractImagePrompt(rawText) {
+  const match = rawText.match(/\n?IMAGE_PROMPT:\s*(.+)\s*$/i);
+  if (!match) {
+    return { text: rawText.trim(), imagePrompt: null };
+  }
+  const text = rawText.slice(0, match.index).trim();
+  const imagePrompt = match[1].trim();
+  return { text, imagePrompt };
+}
+
 // Ask the AI a text question. `history` is the prior conversation (array of
 // {role: 'user'|'model', parts: [{text}]}), so the AI remembers what was
 // already discussed instead of treating every message as a fresh start.
+// Returns { text, imagePrompt } — imagePrompt is null when no illustration
+// was warranted for this particular answer.
 export async function askTutorText({ question, classNumber, board, history = [] }) {
   const key = await getValidApiKey();
-  return callGemini(key, {
+  const raw = await callGemini(key, {
     systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [...history, { role: 'user', parts: [{ text: question }] }],
     generationConfig: { maxOutputTokens: 4096 },
   });
+  return extractImagePrompt(raw);
 }
 
 // Ask the AI about a photo (e.g. a textbook page, a diagram, homework question).
 // Gemini can read/understand the photo and explain it in text, even on a free key.
-// `history` works the same way as in askTutorText.
+// `history` works the same way as in askTutorText. Also returns { text, imagePrompt }.
 export async function askTutorPhoto({
   base64Image,
   mimeType,
@@ -119,7 +144,7 @@ export async function askTutorPhoto({
   history = [],
 }) {
   const key = await getValidApiKey();
-  return callGemini(key, {
+  const raw = await callGemini(key, {
     systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
     contents: [
       ...history,
@@ -131,7 +156,9 @@ export async function askTutorPhoto({
         ],
       },
     ],
+    generationConfig: { maxOutputTokens: 4096 },
   });
+  return extractImagePrompt(raw);
 }
 
 // Generates a short quiz from the list of topics the student has learned this week.
