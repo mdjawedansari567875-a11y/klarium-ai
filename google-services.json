@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "246389408868-rlrb8jv78nbh2ce3srnemksot9bp7gto.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.carfam.klariumai",
+            "certificate_hash": "3847ba135d200211b8e050b41db544345401a887"
+          }
+        },
+        {
           "client_id": "246389408868-tu20s438vcgnbv3purp4il10v8okm82v.apps.googleusercontent.com",
           "client_type": 3
         }
