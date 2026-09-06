@@ -2,21 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from '@expo-google-fonts/poppins';
 import OnboardingNavigator from './src/navigation/OnboardingNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
 import ScreenBackground from './src/components/ScreenBackground';
-import { colors } from './src/theme/theme';
-import { ensureSignedIn } from './src/services/authService';
+import { colors, typography, spacing } from './src/theme/theme';
+import { ensureSignedIn, getCurrentUid } from './src/services/authService';
 import { setupStreakReminder } from './src/services/notificationService';
 import { initAds } from './src/services/adsService';
+import { getUserRecord } from './src/services/userService';
 
 const RootStack = createNativeStackNavigator();
 
 export default function App() {
   const [checking, setChecking] = useState(true);
   const [onboarded, setOnboarded] = useState(false);
+  const [banned, setBanned] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -43,6 +45,22 @@ export default function App() {
         console.warn('Firebase sign-in failed:', e.message);
       }
 
+      // Check whether the admin has banned this account. Checked on every
+      // launch (not just at sign-in time) so a ban applied while the app was
+      // already installed still takes effect the next time it's opened.
+      try {
+        const uid = getCurrentUid();
+        const record = await getUserRecord(uid);
+        if (record?.banned) {
+          setBanned(true);
+          setChecking(false);
+          return;
+        }
+      } catch (e) {
+        // If this check fails (e.g. no internet), don't block a legitimate
+        // user from using the app — fail open, not closed.
+      }
+
       // Local daily reminder so students don't lose their streak. Free,
       // no backend required.
       setupStreakReminder().catch(() => {});
@@ -61,6 +79,18 @@ export default function App() {
     );
   }
 
+  if (banned) {
+    return (
+      <ScreenBackground style={styles.bannedContainer}>
+        <Text style={styles.bannedTitle}>Account Blocked</Text>
+        <Text style={styles.bannedText}>
+          Your access to KLARIUM AI has been blocked. If you think this is a mistake,
+          please contact klariumai@gmail.com.
+        </Text>
+      </ScreenBackground>
+    );
+  }
+
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
@@ -71,4 +101,22 @@ export default function App() {
       </RootStack.Navigator>
     </NavigationContainer>
   );
-        }
+}
+
+const styles = StyleSheet.create({
+  bannedContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  bannedTitle: {
+    ...typography.h1,
+    color: colors.danger,
+    marginBottom: spacing.md,
+  },
+  bannedText: {
+    ...typography.body,
+    textAlign: 'center',
+  },
+});
