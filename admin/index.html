@@ -144,6 +144,22 @@
   .points-group span { font-size: 13px; min-width: 34px; text-align: center; }
   .points-group button { padding: 4px 10px; font-size: 15px; }
   #loadingMsg, #emptyMsg { color: var(--muted); text-align: center; padding: 20px; }
+  #savedToast {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ok);
+    color: #0a1f14;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  #savedToast.show { opacity: 1; }
 </style>
 </head>
 <body>
@@ -178,6 +194,8 @@
   </main>
 </div>
 
+<div id="savedToast">Saved ✓</div>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -203,6 +221,13 @@
   const loginScreen = document.getElementById('loginScreen');
   const deniedScreen = document.getElementById('deniedScreen');
   const adminScreen = document.getElementById('adminScreen');
+  const toast = document.getElementById('savedToast');
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 1400);
+  }
 
   document.getElementById('signInBtn').onclick = () => {
     const provider = new firebase.auth.GoogleAuthProvider();
@@ -287,8 +312,8 @@
         </div>
       `;
 
-      card.querySelector('[data-action="minus"]').onclick = () => adjustPoints(u.id, points - 10);
-      card.querySelector('[data-action="plus"]').onclick = () => adjustPoints(u.id, points + 10);
+      card.querySelector('[data-action="minus"]').onclick = () => adjustPoints(u, points - 10);
+      card.querySelector('[data-action="plus"]').onclick = () => adjustPoints(u, points + 10);
       card.querySelector('[data-action="premium"]').onclick = () => toggleField(u.id, 'isPremium', !u.isPremium);
       card.querySelector('[data-action="ban"]').onclick = () => toggleField(u.id, 'banned', !u.banned);
 
@@ -296,18 +321,41 @@
     });
   }
 
-  function adjustPoints(uid, newPoints) {
-    db.collection('users').doc(uid).update({
-      points: Math.max(0, newPoints),
+  // Updates the admin-tracked points on the user doc, AND mirrors that same
+  // number onto the public leaderboard entry — so bumping points here shows
+  // up on the students' in-app leaderboard immediately, not just here.
+  function adjustPoints(u, newPointsRaw) {
+    const newPoints = Math.max(0, newPointsRaw);
+    const displayName = u.username || u.googleName || 'Student';
+
+    const batch = db.batch();
+    batch.update(db.collection('users').doc(u.id), {
+      points: newPoints,
       updatedAt: Date.now(),
-    }).then(loadUsers).catch((e) => alert('Failed: ' + e.message));
+    });
+    batch.set(db.collection('leaderboard').doc(u.id), {
+      name: displayName,
+      photoURL: u.photoURL || null,
+      score: newPoints,
+      total: null, // not from a weekly quiz — this is an admin-set score
+      date: new Date().toISOString().slice(0, 10),
+      updatedAt: Date.now(),
+    }, { merge: true });
+
+    batch.commit().then(() => {
+      showToast('Saved ✓');
+      loadUsers();
+    }).catch((e) => alert('Failed: ' + e.message));
   }
 
   function toggleField(uid, field, value) {
     db.collection('users').doc(uid).update({
       [field]: value,
       updatedAt: Date.now(),
-    }).then(loadUsers).catch((e) => alert('Failed: ' + e.message));
+    }).then(() => {
+      showToast('Saved ✓');
+      loadUsers();
+    }).catch((e) => alert('Failed: ' + e.message));
   }
 
   function escapeHtml(str) {
