@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
+import { ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from '@expo-google-fonts/poppins';
 import OnboardingNavigator from './src/navigation/OnboardingNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
@@ -12,6 +12,7 @@ import { ensureSignedIn, getCurrentUid } from './src/services/authService';
 import { setupStreakReminder } from './src/services/notificationService';
 import { initAds } from './src/services/adsService';
 import { getUserRecord } from './src/services/userService';
+import { syncPremiumFromServer } from './src/services/premiumService';
 
 const RootStack = createNativeStackNavigator();
 
@@ -45,9 +46,9 @@ export default function App() {
         console.warn('Firebase sign-in failed:', e.message);
       }
 
-      // Check whether the admin has banned this account. Checked on every
-      // launch (not just at sign-in time) so a ban applied while the app was
-      // already installed still takes effect the next time it's opened.
+      // Pull this student's admin-controlled fields (banned, isPremium) from
+      // Firestore on every launch, so changes made in the admin panel take
+      // effect the next time the app is opened.
       try {
         const uid = getCurrentUid();
         const record = await getUserRecord(uid);
@@ -56,9 +57,11 @@ export default function App() {
           setChecking(false);
           return;
         }
+        await syncPremiumFromServer(record?.isPremium);
       } catch (e) {
         // If this check fails (e.g. no internet), don't block a legitimate
-        // user from using the app — fail open, not closed.
+        // user from using the app — fail open, not closed. Premium status
+        // simply stays whatever it was last synced to.
       }
 
       // Local daily reminder so students don't lose their streak. Free,
