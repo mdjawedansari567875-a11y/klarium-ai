@@ -27,6 +27,7 @@ import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { tapFeedback } from '../../utils/haptics';
 import { getBannerAdUnitId } from '../../services/adsService';
 import { getIsPremium, subscribeToPremiumStatus } from '../../services/premiumService';
+import { buildIllustrationUrl } from '../../services/pollinationsService';
 import {
   askTutorText,
   askTutorPhoto,
@@ -188,6 +189,20 @@ export default function HomeScreen() {
     });
   };
 
+  // Turns a raw AI result ({ text, imagePrompt }) into the message pushed to
+  // chat — building the Pollinations.ai illustration URL if the AI asked for
+  // one. Pollinations has no guaranteed uptime, so if the image fails to
+  // load, <Image> will simply show nothing rather than break the message.
+  const pushAiMessage = (idSuffix, result) => {
+    const aiImageUrl = result.imagePrompt ? buildIllustrationUrl(result.imagePrompt) : null;
+    pushMessage({
+      id: Date.now() + idSuffix,
+      role: 'ai',
+      text: result.text,
+      aiImage: aiImageUrl,
+    });
+  };
+
   // Handles sending whatever is currently staged: text only, a pending image
   // only, or an image with a caption typed alongside it (attach-then-caption
   // flow — the image is picked first and sits as a preview until the student
@@ -209,10 +224,10 @@ export default function HomeScreen() {
     });
     setSending(true);
     try {
-      let answer;
+      let result;
       if (imageToSend) {
         const photoQuestion = question || 'Please explain what is shown in this image, simply.';
-        answer = await askTutorPhoto({
+        result = await askTutorPhoto({
           base64Image: imageToSend.base64,
           mimeType: 'image/jpeg',
           question: photoQuestion,
@@ -225,11 +240,11 @@ export default function HomeScreen() {
         historyRef.current = [
           ...historyRef.current,
           { role: 'user', parts: [{ text: '[Sent a photo] ' + photoQuestion }] },
-          { role: 'model', parts: [{ text: answer }] },
+          { role: 'model', parts: [{ text: result.text }] },
         ].slice(-20);
         await recordTopic('photo question');
       } else {
-        answer = await askTutorText({
+        result = await askTutorText({
           question,
           classNumber: profile?.classNumber,
           board: profile?.board,
@@ -238,11 +253,11 @@ export default function HomeScreen() {
         historyRef.current = [
           ...historyRef.current,
           { role: 'user', parts: [{ text: question }] },
-          { role: 'model', parts: [{ text: answer }] },
+          { role: 'model', parts: [{ text: result.text }] },
         ].slice(-20);
         await recordTopic(question.slice(0, 80));
       }
-      pushMessage({ id: Date.now() + '-ai', role: 'ai', text: answer });
+      pushAiMessage('-ai', result);
     } catch (e) {
       pushErrorMessage('-err', "Sorry, I couldn't process that. Please try again.", e);
     } finally {
@@ -342,6 +357,13 @@ export default function HomeScreen() {
       >
         {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
         {item.text ? <FormattedText text={item.text} style={styles.bubbleText} /> : null}
+        {item.role === 'ai' && item.aiImage ? (
+          <Image
+            source={{ uri: item.aiImage }}
+            style={styles.aiIllustration}
+            resizeMode="cover"
+          />
+        ) : null}
         {item.role === 'ai' && item.text ? (
           <Pressable style={styles.speakButton} onPress={() => speakMessage(item.text)}>
             <Ionicons name="volume-medium-outline" size={16} color={colors.gold} />
@@ -502,6 +524,13 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     marginBottom: spacing.xs,
   },
+  aiIllustration: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radius.sm,
+    marginTop: spacing.sm,
+    backgroundColor: colors.surfaceElevated,
+  },
   speakButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -590,7 +619,4 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor: colors.gradientEnd,
     alignItems: 'center',
-    justifyContent: 'center',
-    ...shadow.glow,
-  },
-});
+    justifyContent: 'center
