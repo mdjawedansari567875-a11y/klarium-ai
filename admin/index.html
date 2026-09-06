@@ -133,16 +133,32 @@
   }
   .actions button.toggle-on { background: var(--gold); color: #1a1a1a; font-weight: 600; }
   .actions button.danger { background: var(--danger); color: #fff; }
-  .points-group {
+  .score-group {
     display: flex;
     align-items: center;
     gap: 6px;
     background: var(--surface2);
     border-radius: 8px;
-    padding: 4px 6px;
+    padding: 6px 8px;
   }
-  .points-group span { font-size: 13px; min-width: 34px; text-align: center; }
-  .points-group button { padding: 4px 10px; font-size: 15px; }
+  .score-group input {
+    width: 44px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 4px 6px;
+    text-align: center;
+  }
+  .score-group span { font-size: 13px; color: var(--muted); }
+  .score-group button {
+    background: var(--gold);
+    color: #1a1a1a;
+    font-weight: 600;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
   #loadingMsg, #emptyMsg { color: var(--muted); text-align: center; padding: 20px; }
   #savedToast {
     position: fixed;
@@ -287,7 +303,8 @@
 
       const displayName = u.username || u.googleName || '(no name)';
       const photo = u.photoURL || '';
-      const points = typeof u.points === 'number' ? u.points : 0;
+      const score = typeof u.points === 'number' ? u.points : 0;
+      const total = typeof u.pointsTotal === 'number' ? u.pointsTotal : 100;
 
       card.innerHTML = `
         <div class="user-top">
@@ -302,18 +319,25 @@
           </div>
         </div>
         <div class="actions">
-          <div class="points-group">
-            <button data-action="minus">−</button>
-            <span>${points} pts</span>
-            <button data-action="plus">+</button>
+          <div class="score-group">
+            <input type="number" class="score-input" value="${score}" min="0" />
+            <span>/</span>
+            <input type="number" class="total-input" value="${total}" min="1" />
+            <button data-action="save-score">Save Score</button>
           </div>
           <button data-action="premium" class="${u.isPremium ? 'toggle-on' : ''}">${u.isPremium ? 'Premium ON' : 'Grant Premium'}</button>
           <button data-action="ban" class="${u.banned ? 'danger' : ''}">${u.banned ? 'Unban' : 'Ban'}</button>
         </div>
       `;
 
-      card.querySelector('[data-action="minus"]').onclick = () => adjustPoints(u, points - 10);
-      card.querySelector('[data-action="plus"]').onclick = () => adjustPoints(u, points + 10);
+      const scoreInput = card.querySelector('.score-input');
+      const totalInput = card.querySelector('.total-input');
+
+      card.querySelector('[data-action="save-score"]').onclick = () => {
+        const newScore = Math.max(0, parseInt(scoreInput.value, 10) || 0);
+        const newTotal = Math.max(1, parseInt(totalInput.value, 10) || 1);
+        saveScore(u, newScore, newTotal);
+      };
       card.querySelector('[data-action="premium"]').onclick = () => toggleField(u.id, 'isPremium', !u.isPremium);
       card.querySelector('[data-action="ban"]').onclick = () => toggleField(u.id, 'banned', !u.banned);
 
@@ -321,23 +345,23 @@
     });
   }
 
-  // Updates the admin-tracked points on the user doc, AND mirrors that same
-  // number onto the public leaderboard entry — so bumping points here shows
-  // up on the students' in-app leaderboard immediately, not just here.
-  function adjustPoints(u, newPointsRaw) {
-    const newPoints = Math.max(0, newPointsRaw);
+  // Saves the admin-set score/total on the user doc, AND mirrors it onto the
+  // public leaderboard entry as "score/total" — same format the app already
+  // uses for real weekly-quiz results, so both look identical to students.
+  function saveScore(u, score, total) {
     const displayName = u.username || u.googleName || 'Student';
 
     const batch = db.batch();
     batch.update(db.collection('users').doc(u.id), {
-      points: newPoints,
+      points: score,
+      pointsTotal: total,
       updatedAt: Date.now(),
     });
     batch.set(db.collection('leaderboard').doc(u.id), {
       name: displayName,
       photoURL: u.photoURL || null,
-      score: newPoints,
-      total: null, // not from a weekly quiz — this is an admin-set score
+      score: score,
+      total: total,
       date: new Date().toISOString().slice(0, 10),
       updatedAt: Date.now(),
     }, { merge: true });
