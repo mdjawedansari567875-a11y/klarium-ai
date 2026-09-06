@@ -28,6 +28,14 @@ async function setIsPremium(isPremium) {
   notifyListeners(isPremium);
 }
 
+// Called once on every app launch (from App.js), right after reading this
+// user's Firestore record. This makes the admin panel's "Grant Premium" /
+// "Premium ON" toggle the actual source of truth — whatever the admin sets
+// there takes effect the next time the student opens the app.
+export async function syncPremiumFromServer(isPremiumFromServer) {
+  await setIsPremium(!!isPremiumFromServer);
+}
+
 // PLACEHOLDER: Real purchases need Google Play Billing, which only works
 // once this app has a Google Play Developer account and is uploaded to
 // Play Console (at least on the Internal Testing track) with a subscription
@@ -38,7 +46,9 @@ async function setIsPremium(isPremium) {
 // 1. Install `react-native-iap` and its Expo config plugin.
 // 2. Create a subscription product in Play Console (e.g. "klarium_premium_monthly").
 // 3. Replace the body of this function with the real purchase flow, and
-//    call setIsPremium(true) only after Play confirms a successful purchase.
+//    call setIsPremium(true) only after Play confirms a successful purchase
+//    (and also write isPremium: true to the user's Firestore doc, so the
+//    admin panel and this device agree).
 export async function purchasePremium() {
   throw new Error('PREMIUM_NOT_AVAILABLE_YET');
 }
@@ -48,8 +58,8 @@ export async function restorePremium() {
 }
 
 // Dev/testing helper only — lets you manually flip premium on/off while
-// building the UI, before real payments exist. Safe to keep in the app;
-// it's not exposed anywhere in the UI unless you wire a button to it.
+// building the UI. Note: this will be overwritten the next time the app
+// launches and syncs from the server (see syncPremiumFromServer above).
 export async function _devSetPremium(isPremium) {
   await setIsPremium(isPremium);
 }
