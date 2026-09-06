@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Image, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import ScreenBackground from '../../components/ScreenBackground';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { subscribeToLeaderboard } from '../../services/progressService';
@@ -24,12 +24,19 @@ export default function LeaderboardScreen() {
       <View style={[styles.rankCircle, index < 3 && styles.rankTop]}>
         <Text style={[styles.rankText, index < 3 && styles.rankTextTop]}>{index + 1}</Text>
       </View>
+      {item.photoURL ? (
+        <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+      ) : (
+        <View style={[styles.avatar, styles.avatarPlaceholder]}>
+          <Text style={styles.avatarInitial}>{(item.name || '?').charAt(0).toUpperCase()}</Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.date}>{item.date}</Text>
       </View>
       <Text style={styles.score}>
-        {item.score}/{item.total}
+        {item.total ? `${item.score}/${item.total}` : item.score}
       </Text>
     </View>
   );
@@ -92,7 +99,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   rankTop: {
     backgroundColor: colors.gold,
@@ -103,6 +110,22 @@ const styles = StyleSheet.create({
   },
   rankTextTop: {
     color: '#0B0B14',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.pill,
+    marginRight: spacing.md,
+  },
+  avatarPlaceholder: {
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    color: colors.gold,
+    fontWeight: '700',
+    fontSize: 15,
   },
   name: {
     ...typography.h2,
