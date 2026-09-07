@@ -161,13 +161,14 @@ export async function askTutorPhoto({
   return extractImagePrompt(raw);
 }
 
-// Generates a short quiz from the list of topics the student has learned this week.
-// Used to power the weekly streak test popup. Expects the AI to return strict JSON.
-export async function generateWeeklyQuiz({ topics, classNumber, board }) {
+// Shared quiz-generation logic used by both the weekly streak test and the
+// on-demand practice quiz — asks Gemini for a strict-JSON multiple choice
+// quiz based on a list of topics, and safely parses the result.
+async function requestQuiz({ topics, classNumber, board }) {
   const key = await getValidApiKey();
   const prompt = `
 Create a 5-question multiple choice quiz for a Class ${classNumber} (${board}) student
-based ONLY on these topics they studied this week: ${topics.join(', ')}.
+based ONLY on these topics they studied: ${topics.join(', ')}.
 Respond with ONLY valid JSON, no markdown, in this exact shape:
 [{"question": "...", "options": ["A","B","C","D"], "correctIndex": 0}]
 `;
@@ -180,6 +181,19 @@ Respond with ONLY valid JSON, no markdown, in this exact shape:
   } catch {
     return [];
   }
+}
+
+// Generates a short quiz from the list of topics the student has learned this week.
+// Used to power the weekly streak test popup.
+export async function generateWeeklyQuiz({ topics, classNumber, board }) {
+  return requestQuiz({ topics, classNumber, board });
+}
+
+// Generates a short quiz on-demand — used by the premium "Practice Quiz" button,
+// so a student can test themselves anytime instead of waiting for the 7-day
+// streak trigger. Same underlying logic as the weekly quiz.
+export async function generatePracticeQuiz({ topics, classNumber, board }) {
+  return requestQuiz({ topics, classNumber, board });
 }
 
 // Transcribes a short voice recording into plain text, so the student can
