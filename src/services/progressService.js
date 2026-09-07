@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { getCurrentUid } from './authService';
+import { getIsPremium } from './premiumService';
 
 const ACTIVE_DAYS_KEY = 'klarium_active_days';
 const TOPICS_KEY = 'klarium_week_topics';
@@ -82,11 +83,15 @@ export async function markTestShown() {
 export async function saveTestScore({ name, score, total, photoURL }) {
   const uid = getCurrentUid();
   if (!uid) return; // not signed in yet — score simply won't sync this time
+  // Mirror current premium status onto the leaderboard doc too, so the
+  // premium badge (crown icon) can be shown without a second Firestore read.
+  const isPremium = await getIsPremium();
   await setDoc(doc(db, 'leaderboard', uid), {
     name: name || 'Student',
     photoURL: photoURL || null,
     score,
     total,
+    isPremium: !!isPremium,
     date: todayKey(),
     updatedAt: Date.now(),
   });
