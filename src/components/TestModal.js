@@ -4,13 +4,17 @@ import PremiumButton from './PremiumButton';
 import { colors, radius, spacing, typography, shadow } from '../theme/theme';
 
 // visible, questions: [{question, options, correctIndex}], onFinish(score, total)
-export default function TestModal({ visible, questions, onFinish, loading }) {
+// mode: "streak" (default, 7-day streak weekly test) or "practice" (on-demand
+// premium quiz) — only changes badge/title text and whether the completion
+// screen mentions the leaderboard.
+export default function TestModal({ visible, questions, onFinish, loading, mode = 'streak' }) {
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState(null);
   const [score, setScore] = useState(0);
   const [done, setDone] = useState(false);
 
   const current = questions?.[step];
+  const isPractice = mode === 'practice';
 
   const handleAnswer = (index) => {
     setSelected(index);
@@ -44,24 +48,30 @@ export default function TestModal({ visible, questions, onFinish, loading }) {
             <>
               <ActivityIndicator color={colors.gold} size="large" />
               <Text style={[typography.body, { marginTop: spacing.md, textAlign: 'center' }]}>
-                Preparing your weekly test...
+                {isPractice ? 'Preparing your practice quiz...' : 'Preparing your weekly test...'}
               </Text>
             </>
           ) : done ? (
             <>
-              <Text style={styles.badge}>🏆 7-Day Streak!</Text>
+              <Text style={styles.badge}>
+                {isPractice ? '📝 Practice Quiz' : '🏆 7-Day Streak!'}
+              </Text>
               <Text style={styles.title}>Test Complete</Text>
               <Text style={styles.scoreText}>
                 {score} / {questions.length} correct
               </Text>
               <Text style={[typography.body, { textAlign: 'center', marginBottom: spacing.lg }]}>
-                Your score has been added to the leaderboard.
+                {isPractice
+                  ? 'Great practice! Keep going to master this topic.'
+                  : 'Your score has been added to the leaderboard.'}
               </Text>
               <PremiumButton label="Nice!" onPress={handleClose} />
             </>
           ) : current ? (
             <>
-              <Text style={styles.badge}>🏆 7-Day Streak Test</Text>
+              <Text style={styles.badge}>
+                {isPractice ? '📝 Practice Quiz' : '🏆 7-Day Streak Test'}
+              </Text>
               <Text style={styles.progress}>
                 Question {step + 1} of {questions.length}
               </Text>
