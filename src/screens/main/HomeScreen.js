@@ -32,6 +32,7 @@ import {
   askTutorText,
   askTutorPhoto,
   generateWeeklyQuiz,
+  generatePracticeQuiz,
   transcribeAudio,
 } from '../../services/geminiService';
 import {
@@ -66,6 +67,9 @@ export default function HomeScreen() {
   const [testVisible, setTestVisible] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
   const [quiz, setQuiz] = useState([]);
+  const [practiceQuizVisible, setPracticeQuizVisible] = useState(false);
+  const [practiceQuizLoading, setPracticeQuizLoading] = useState(false);
+  const [practiceQuiz, setPracticeQuiz] = useState([]);
   const [tutorialVisible, setTutorialVisible] = useState(false);
   const [attachmentVisible, setAttachmentVisible] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -167,6 +171,34 @@ export default function HomeScreen() {
       total,
     });
     await markTestShown();
+  };
+
+  // Premium-only: lets the student generate a quiz anytime, instead of
+  // waiting for the 7-day streak trigger. Does NOT touch the leaderboard —
+  // this is just for the student's own practice.
+  const handlePracticeQuiz = async () => {
+    tapFeedback();
+    setPracticeQuizVisible(true);
+    setPracticeQuizLoading(true);
+    try {
+      const topics = await getWeekTopics();
+      const savedProfile = JSON.parse((await AsyncStorage.getItem('klarium_profile')) || '{}');
+      const topicList = topics.length ? topics : ['general revision'];
+      const generated = await generatePracticeQuiz({
+        topics: topicList,
+        classNumber: savedProfile.classNumber,
+        board: savedProfile.board,
+      });
+      setPracticeQuiz(generated);
+    } catch (e) {
+      setPracticeQuiz([]);
+    } finally {
+      setPracticeQuizLoading(false);
+    }
+  };
+
+  const handlePracticeQuizFinish = () => {
+    setPracticeQuizVisible(false);
   };
 
   const pushMessage = (msg) => {
@@ -377,12 +409,22 @@ export default function HomeScreen() {
   return (
     <ScreenBackground style={{ flex: 1 }}>
       <View style={styles.header}>
-        <Text style={typography.h1}>
-          {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
-        </Text>
-        <Text style={styles.headerSubtitle}>
-          {profile ? `Class ${profile.classNumber} · ${profile.board}` : 'Your AI Tutor'}
-        </Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={typography.h1}>
+              {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {profile ? `Class ${profile.classNumber} · ${profile.board}` : 'Your AI Tutor'}
+            </Text>
+          </View>
+          {isPremium && (
+            <Pressable style={styles.practiceButton} onPress={handlePracticeQuiz}>
+              <Ionicons name="create-outline" size={14} color={colors.gold} />
+              <Text style={styles.practiceButtonText}>Practice Quiz</Text>
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <FlatList
@@ -463,6 +505,15 @@ export default function HomeScreen() {
         loading={testLoading}
         questions={quiz}
         onFinish={handleTestFinish}
+        mode="streak"
+      />
+
+      <TestModal
+        visible={practiceQuizVisible}
+        loading={practiceQuizLoading}
+        questions={practiceQuiz}
+        onFinish={handlePracticeQuizFinish}
+        mode="practice"
       />
 
       <TutorialOverlay visible={tutorialVisible} onDone={handleTutorialDone} />
@@ -485,9 +536,29 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
   headerSubtitle: {
     ...typography.caption,
     marginTop: 2,
+  },
+  practiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+  },
+  practiceButtonText: {
+    color: colors.gold,
+    fontSize: 12,
+    fontWeight: '600',
   },
   chatList: {
     paddingHorizontal: spacing.lg,
@@ -620,6 +691,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gradientEnd,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadow.glow,
   },
 });
