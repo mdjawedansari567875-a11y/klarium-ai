@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Image, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { subscribeToLeaderboard } from '../../services/progressService';
@@ -32,7 +33,17 @@ export default function LeaderboardScreen() {
         </View>
       )}
       <View style={{ flex: 1 }}>
-        <Text style={styles.name}>{item.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{item.name}</Text>
+          {item.isPremium ? (
+            <Ionicons
+              name="star"
+              size={14}
+              color={colors.gold}
+              style={styles.crownIcon}
+            />
+          ) : null}
+        </View>
         <Text style={styles.date}>{item.date}</Text>
       </View>
       <Text style={styles.score}>
@@ -127,9 +138,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   name: {
     ...typography.h2,
     fontSize: 16,
+  },
+  crownIcon: {
+    marginTop: -2,
   },
   date: {
     ...typography.caption,
