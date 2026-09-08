@@ -1,131 +1,77 @@
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator, Text, StyleSheet } from 'react-native';
-import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from '@expo-google-fonts/poppins';
-import OnboardingNavigator from './src/navigation/OnboardingNavigator';
-import MainTabNavigator from './src/navigation/MainTabNavigator';
-import ScreenBackground from './src/components/ScreenBackground';
-import { colors, typography, spacing } from './src/theme/theme';
-import { ensureSignedIn, getCurrentUid } from './src/services/authService';
-import { setupStreakReminder } from './src/services/notificationService';
-import { initAds } from './src/services/adsService';
-import { getUserRecord } from './src/services/userService';
-import { syncPremiumFromServer } from './src/services/premiumService';
-import { registerForPushNotifications } from './src/services/pushTokenService';
-
-const RootStack = createNativeStackNavigator();
-
-export default function App() {
-  const [checking, setChecking] = useState(true);
-  const [onboarded, setOnboarded] = useState(false);
-  const [banned, setBanned] = useState(false);
-
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-    Poppins_800ExtraBold,
-  });
-
-  useEffect(() => {
-    // Initialize the ads SDK as soon as the app starts, so the banner ad on
-    // the Home screen is ready to load the first time a non-premium user
-    // opens it (rather than waiting until that screen mounts).
-    initAds();
-
-    (async () => {
-      // Sign the device in anonymously with Firebase first — this gives every
-      // user a stable, unique ID that the leaderboard is keyed on. It happens
-      // silently in the background; the user never sees a login screen.
-      try {
-        await ensureSignedIn();
-      } catch (e) {
-        // If this fails (e.g. no internet on first launch), the app still
-        // works locally — the leaderboard just won't sync until it succeeds.
-        console.warn('Firebase sign-in failed:', e.message);
+{
+  "expo": {
+    "name": "KLARIUM AI",
+    "slug": "klarium-ai",
+    "owner": "carfam7s-team",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0B0B14",
+    "icon": "./assets/klarium-icon.png",
+    "splash": {
+      "image": "./assets/klarium-splash-icon.png",
+      "backgroundColor": "#0B0B14",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.carfam.klariumai",
+      "infoPlist": {
+        "NSCameraUsageDescription": "KLARIUM AI uses the camera so you can take a photo of a question and get it explained.",
+        "NSMicrophoneUsageDescription": "KLARIUM AI uses the microphone so you can speak your question instead of typing it.",
+        "NSPhotoLibraryUsageDescription": "KLARIUM AI needs access to your photos so you can send a picture of a question."
       }
-
-      // Pull this student's admin-controlled fields (banned, isPremium) from
-      // Firestore on every launch, so changes made in the admin panel take
-      // effect the next time the app is opened.
-      try {
-        const uid = getCurrentUid();
-        const record = await getUserRecord(uid);
-        if (record?.banned) {
-          setBanned(true);
-          setChecking(false);
-          return;
+    },
+    "android": {
+      "package": "com.carfam.klariumai",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/klarium-adaptive-icon-foreground.png",
+        "backgroundColor": "#0B0B14"
+      },
+      "permissions": ["CAMERA", "RECORD_AUDIO", "READ_EXTERNAL_STORAGE"]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "KLARIUM AI needs access to your photos so you can send a picture of a question.",
+          "cameraPermission": "KLARIUM AI uses the camera so you can take a photo of a question and get it explained."
         }
-        await syncPremiumFromServer(record?.isPremium);
-
-        // Register this device for push notifications (asks permission the
-        // first time), saving the token so the admin panel can broadcast
-        // announcements to every student later.
-        registerForPushNotifications(uid).catch(() => {});
-      } catch (e) {
-        // If this check fails (e.g. no internet), don't block a legitimate
-        // user from using the app — fail open, not closed. Premium status
-        // simply stays whatever it was last synced to.
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "KLARIUM AI uses the microphone so you can speak your question instead of typing it."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#D4AF37"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "kotlinVersion": "1.9.24"
+          }
+        }
+      ],
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e9bfe1bb-4e36-44bc-92ec-07951cbf2811"
       }
-
-      // Local daily reminder so students don't lose their streak. Free,
-      // no backend required.
-      setupStreakReminder().catch(() => {});
-
-      const flag = await AsyncStorage.getItem('klarium_onboarded');
-      setOnboarded(flag === 'true');
-      setChecking(false);
-    })();
-  }, []);
-
-  if (checking || !fontsLoaded) {
-    return (
-      <ScreenBackground style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={colors.gold} size="large" />
-      </ScreenBackground>
-    );
+    }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-4588188976164551~1893143462",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
   }
-
-  if (banned) {
-    return (
-      <ScreenBackground style={styles.bannedContainer}>
-        <Text style={styles.bannedTitle}>Account Blocked</Text>
-        <Text style={styles.bannedText}>
-          Your access to KLARIUM AI has been blocked. If you think this is a mistake,
-          please contact klariumai@gmail.com.
-        </Text>
-      </ScreenBackground>
-    );
-  }
-
-  return (
-    <NavigationContainer>
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {!onboarded && (
-          <RootStack.Screen name="Onboarding" component={OnboardingNavigator} />
-        )}
-        <RootStack.Screen name="MainApp" component={MainTabNavigator} />
-      </RootStack.Navigator>
-    </NavigationContainer>
-  );
 }
-
-const styles = StyleSheet.create({
-  bannedContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  bannedTitle: {
-    ...typography.h1,
-    color: colors.danger,
-    marginBottom: spacing.md,
-  },
-  bannedText: {
-    ...typography.body,
-    textAlign: 'center',
-  },
-});
