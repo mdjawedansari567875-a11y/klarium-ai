@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Image, FlatList, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
@@ -11,6 +11,8 @@ import { subscribeToLeaderboard } from '../../services/progressService';
 export default function LeaderboardScreen() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  // "all" or "premium" — controls which entries the FlatList shows below.
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     const unsubscribe = subscribeToLeaderboard((data) => {
@@ -19,6 +21,9 @@ export default function LeaderboardScreen() {
     });
     return unsubscribe;
   }, []);
+
+  const visibleEntries =
+    activeTab === 'premium' ? entries.filter((e) => e.isPremium) : entries;
 
   const renderItem = ({ item, index }) => (
     <View style={[styles.row, shadow.card]}>
@@ -57,19 +62,46 @@ export default function LeaderboardScreen() {
       <Text style={typography.h1}>Leaderboard</Text>
       <Text style={styles.subtitle}>Weekly test scores from every learner</Text>
 
+      <View style={styles.tabRow}>
+        <Pressable
+          style={[styles.tabButton, activeTab === 'all' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('all')}
+        >
+          <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
+            All
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tabButton, activeTab === 'premium' && styles.tabButtonActive]}
+          onPress={() => setActiveTab('premium')}
+        >
+          <Ionicons
+            name="star"
+            size={13}
+            color={activeTab === 'premium' ? '#0B0B14' : colors.gold}
+            style={{ marginRight: 4 }}
+          />
+          <Text style={[styles.tabText, activeTab === 'premium' && styles.tabTextActive]}>
+            Premium Champions
+          </Text>
+        </Pressable>
+      </View>
+
       {loading ? (
         <View style={styles.empty}>
           <ActivityIndicator color={colors.gold} size="large" />
         </View>
-      ) : entries.length === 0 ? (
+      ) : visibleEntries.length === 0 ? (
         <View style={styles.empty}>
           <Text style={typography.body}>
-            No scores yet. Complete a 7-day streak to take your first test!
+            {activeTab === 'premium'
+              ? 'No premium champions yet.'
+              : 'No scores yet. Complete a 7-day streak to take your first test!'}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={entries}
+          data={visibleEntries}
           keyExtractor={(item, i) => item.name + i}
           renderItem={renderItem}
           contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: spacing.xl }}
@@ -87,6 +119,33 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.caption,
     marginTop: spacing.xs,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  tabButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+  },
+  tabButtonActive: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
+  tabText: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    color: '#0B0B14',
   },
   empty: {
     marginTop: spacing.xxl,
