@@ -83,6 +83,45 @@
     color: var(--muted);
   }
   .stat-chip b { color: var(--text); }
+  .notify-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .notify-box h3 {
+    margin: 0 0 10px 0;
+    color: var(--gold);
+    font-size: 15px;
+  }
+  .notify-box input, .notify-box textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 14px;
+    margin-bottom: 10px;
+    font-family: inherit;
+  }
+  .notify-box textarea { resize: vertical; min-height: 60px; }
+  .notify-box button {
+    background: var(--gold);
+    color: #1a1a1a;
+    font-weight: 600;
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+  .notify-box button:disabled {
+    opacity: 0.6;
+  }
+  #notifyStatus {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
   input#search {
     width: 100%;
     padding: 10px 12px;
@@ -203,6 +242,15 @@
       <div class="stat-chip">Premium: <b id="statPremium">0</b></div>
       <div class="stat-chip">Banned: <b id="statBanned">0</b></div>
     </div>
+
+    <div class="notify-box">
+      <h3>Send Notification to All Students</h3>
+      <input id="notifyTitle" type="text" placeholder="Title (e.g. New Quiz Available!)" />
+      <textarea id="notifyDesc" placeholder="Description..."></textarea>
+      <button id="notifySendBtn">Send to All</button>
+      <div id="notifyStatus"></div>
+    </div>
+
     <input id="search" type="text" placeholder="Search by name or email..." />
     <div id="loadingMsg">Loading students...</div>
     <div id="emptyMsg" style="display:none;">No students found.</div>
@@ -397,6 +445,69 @@
       (u.email || '').toLowerCase().includes(q)
     ));
   });
+
+  // --- Send push notification to every student that has a saved push token ---
+  // Uses Expo's free push notification service directly from the browser —
+  // no backend/server needed. Tokens come from users/{uid}.expoPushToken,
+  // saved by the app itself (pushTokenService.js) after the student grants
+  // notification permission.
+  document.getElementById('notifySendBtn').onclick = async () => {
+    const title = document.getElementById('notifyTitle').value.trim();
+    const body = document.getElementById('notifyDesc').value.trim();
+    const statusEl = document.getElementById('notifyStatus');
+    const btn = document.getElementById('notifySendBtn');
+
+    if (!title || !body) {
+      statusEl.textContent = 'Please fill both Title and Description.';
+      return;
+    }
+
+    const tokens = allUsers
+      .map((u) => u.expoPushToken)
+      .filter((t) => typeof t === 'string' && t.startsWith('ExponentPushToken'));
+
+    if (tokens.length === 0) {
+      statusEl.textContent = 'No students have notifications enabled yet.';
+      return;
+    }
+
+    btn.disabled = true;
+    statusEl.textContent = `Sending to ${tokens.length} student(s)...`;
+
+    // Expo's push endpoint accepts up to 100 messages per request, so split
+    // into chunks of 100 tokens each.
+    const chunks = [];
+    for (let i = 0; i < tokens.length; i += 100) {
+      chunks.push(tokens.slice(i, i + 100));
+    }
+
+    try {
+      for (const chunk of chunks) {
+        const messages = chunk.map((token) => ({
+          to: token,
+          title,
+          body,
+          sound: 'default',
+        }));
+        await fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip, deflate',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(messages),
+        });
+      }
+      statusEl.textContent = `Sent to ${tokens.length} student(s) ✓`;
+      document.getElementById('notifyTitle').value = '';
+      document.getElementById('notifyDesc').value = '';
+    } catch (e) {
+      statusEl.textContent = 'Failed to send: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  };
 </script>
 </body>
 </html>
