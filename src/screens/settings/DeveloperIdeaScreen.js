@@ -8,7 +8,7 @@ import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 export default function DeveloperIdeaScreen({ navigation }) {
   return (
     <ScreenBackground>
-      <SubScreenHeader title="Developer & Idea" onBack={() => navigation.goBack()} />
+      <SubScreenHeader title="Developer" onBack={() => navigation.goBack()} />
       <View style={styles.container}>
         <View style={styles.iconCircle}>
           <Ionicons name="sparkles" size={30} color={colors.gold} />
