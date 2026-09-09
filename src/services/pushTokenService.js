@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 
@@ -8,39 +8,54 @@ import { db } from './firebaseConfig';
 // Expo push token onto the student's Firestore doc (users/{uid}). The admin
 // panel later reads all these tokens to broadcast a notification to every
 // student's phone, via Expo's free push service — no paid backend needed.
+//
+// TEMPORARY DEBUG VERSION: shows an Alert popup at each step so we can see
+// exactly where/why this is failing. Remove the Alert.alert() calls once
+// it's working.
 export async function registerForPushNotifications(uid) {
   if (!uid) return;
 
-  // Android requires a notification channel to be set up before showing
-  // notifications with custom importance/sound.
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.DEFAULT,
-      lightColor: '#D4AF37',
-    });
-  }
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.DEFAULT,
+        lightColor: '#D4AF37',
+      });
+    }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  if (finalStatus !== 'granted') {
-    // Student declined notification permission — nothing more to do.
-    return;
-  }
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      Alert.alert('Push Debug', 'Permission NOT granted. Status: ' + finalStatus);
+      return;
+    }
 
-  const projectId = Constants?.expoConfig?.extra?.eas?.projectId;
-  const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
-  const token = tokenResponse?.data;
-  if (!token) return;
+    const projectId = Constants?.expoConfig?.extra?.eas?.projectId;
+    if (!projectId) {
+      Alert.alert('Push Debug', 'No projectId found in app config!');
+      return;
+    }
 
-  // merge: true so this never overwrites other fields already on the doc.
-  await setDoc(
-    doc(db, 'users', uid),
-    { expoPushToken: token, updatedAt: Date.now() },
-    { merge: true }
-  );
+    const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
+    const token = tokenResponse?.data;
+    if (!token) {
+      Alert.alert('Push Debug', 'Token came back empty.');
+      return;
+    }
+
+    await setDoc(
+      doc(db, 'users', uid),
+      { expoPushToken: token, updatedAt: Date.now() },
+      { merge: true }
+    );
+
+    Alert.alert('Push Debug', 'SUCCESS! Token saved: ' + token.slice(0, 25) + '...');
+  } catch (e) {
+    Alert.alert('Push Debug ERROR', e.message || String(e));
+  }
 }
