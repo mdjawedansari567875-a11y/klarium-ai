@@ -411,9 +411,17 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={typography.h1}>
-              {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text style={typography.h1}>
+                {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
+              </Text>
+              {isPremium && (
+                <Image
+                  source={require('../../../assets/premium-crown.png')}
+                  style={styles.crownBadge}
+                />
+              )}
+            </View>
             <Text style={styles.headerSubtitle}>
               {profile ? `Class ${profile.classNumber} · ${profile.board}` : 'Your AI Tutor'}
             </Text>
@@ -540,6 +548,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  crownBadge: {
+    width: 18,
+    height: 18,
   },
   headerSubtitle: {
     ...typography.caption,
@@ -693,3 +710,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+  
