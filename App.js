@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { ActivityIndicator, Text, StyleSheet, Alert } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from '@expo-google-fonts/poppins';
 import OnboardingNavigator from './src/navigation/OnboardingNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
@@ -13,6 +13,7 @@ import { setupStreakReminder } from './src/services/notificationService';
 import { initAds } from './src/services/adsService';
 import { getUserRecord } from './src/services/userService';
 import { syncPremiumFromServer } from './src/services/premiumService';
+import { registerForPushNotifications } from './src/services/pushTokenService';
 
 const RootStack = createNativeStackNavigator();
 
@@ -51,17 +52,25 @@ export default function App() {
       // effect the next time the app is opened.
       try {
         const uid = getCurrentUid();
+        Alert.alert('DEBUG 1', 'uid = ' + String(uid));
+
         const record = await getUserRecord(uid);
+        Alert.alert('DEBUG 2', 'record fetched OK. banned=' + record?.banned + ' premium=' + record?.isPremium);
+
         if (record?.banned) {
           setBanned(true);
           setChecking(false);
           return;
         }
         await syncPremiumFromServer(record?.isPremium);
+
+        // Register this device for push notifications (asks permission the
+        // first time), saving the token so the admin panel can broadcast
+        // announcements to every student later.
+        Alert.alert('DEBUG 3', 'About to call registerForPushNotifications');
+        await registerForPushNotifications(uid);
       } catch (e) {
-        // If this check fails (e.g. no internet), don't block a legitimate
-        // user from using the app — fail open, not closed. Premium status
-        // simply stays whatever it was last synced to.
+        Alert.alert('DEBUG ERROR (outer)', e.message || String(e));
       }
 
       // Local daily reminder so students don't lose their streak. Free,
