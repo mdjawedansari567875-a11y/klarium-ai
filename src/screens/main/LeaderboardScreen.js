@@ -41,11 +41,9 @@ export default function LeaderboardScreen() {
         <View style={styles.nameRow}>
           <Text style={styles.name}>{item.name}</Text>
           {item.isPremium ? (
-            <Ionicons
-              name="star"
-              size={14}
-              color={colors.gold}
-              style={styles.crownIcon}
+            <Image
+              source={require('../../../assets/premium-medal.png')}
+              style={styles.medalBadge}
             />
           ) : null}
         </View>
@@ -75,11 +73,9 @@ export default function LeaderboardScreen() {
           style={[styles.tabButton, activeTab === 'premium' && styles.tabButtonActive]}
           onPress={() => setActiveTab('premium')}
         >
-          <Ionicons
-            name="star"
-            size={13}
-            color={activeTab === 'premium' ? '#0B0B14' : colors.gold}
-            style={{ marginRight: 4 }}
+          <Image
+            source={require('../../../assets/premium-medal.png')}
+            style={styles.tabMedalIcon}
           />
           <Text style={[styles.tabText, activeTab === 'premium' && styles.tabTextActive]}>
             Premium Champions
@@ -138,6 +134,11 @@ const styles = StyleSheet.create({
   tabButtonActive: {
     backgroundColor: colors.gold,
     borderColor: colors.gold,
+  },
+  tabMedalIcon: {
+    width: 14,
+    height: 14,
+    marginRight: 4,
   },
   tabText: {
     color: colors.textSecondary,
@@ -206,8 +207,9 @@ const styles = StyleSheet.create({
     ...typography.h2,
     fontSize: 16,
   },
-  crownIcon: {
-    marginTop: -2,
+  medalBadge: {
+    width: 16,
+    height: 16,
   },
   date: {
     ...typography.caption,
