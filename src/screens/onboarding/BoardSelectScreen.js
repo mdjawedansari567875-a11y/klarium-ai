@@ -8,10 +8,45 @@ import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 
 const { width } = Dimensions.get('window');
 
-const BOARDS = [
-  { label: 'NCERT', icon: 'book-outline' },
-  { label: 'CBSE', icon: 'school-outline' },
-];
+// Defined OUTSIDE the screen component so it never gets recreated on every
+// re-render — keeping it inside caused React to remount the cards (briefly
+// unmounting them) every time "selected" changed, which looked like the
+// cards randomly disappearing for a moment.
+function BoardCard({ label, icon, animatedX, isSelected, onPress }) {
+  return (
+    <Animated.View style={{ transform: [{ translateX: animatedX }], flex: 1 }}>
+      <Pressable
+        onPress={onPress}
+        style={[styles.cardWrapper, isSelected && shadow.card]}
+      >
+        <LinearGradient
+          colors={isSelected ? [colors.gradientStart, colors.gradientEnd] : [colors.surface, colors.surface]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.card, isSelected && styles.cardSelected]}
+        >
+          <Ionicons
+            name={icon}
+            size={28}
+            color={isSelected ? colors.gold : colors.textSecondary}
+            style={styles.cardIcon}
+          />
+          <Text style={[styles.cardText, isSelected && styles.cardTextSelected]}>
+            {label}
+          </Text>
+          {isSelected && (
+            <Ionicons
+              name="checkmark-circle"
+              size={18}
+              color={colors.gold}
+              style={styles.checkIcon}
+            />
+          )}
+        </LinearGradient>
+      </Pressable>
+    </Animated.View>
+  );
+}
 
 export default function BoardSelectScreen({ navigation, route }) {
   const { classNumber } = route.params;
@@ -28,43 +63,6 @@ export default function BoardSelectScreen({ navigation, route }) {
     ]).start();
   }, []);
 
-  const BoardCard = ({ label, icon, animatedX }) => {
-    const isSelected = selected === label;
-    return (
-      <Animated.View style={{ transform: [{ translateX: animatedX }], flex: 1 }}>
-        <Pressable
-          onPress={() => setSelected(label)}
-          style={[styles.cardWrapper, isSelected && shadow.card]}
-        >
-          <LinearGradient
-            colors={isSelected ? [colors.gradientStart, colors.gradientEnd] : [colors.surface, colors.surface]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[styles.card, isSelected && styles.cardSelected]}
-          >
-            <Ionicons
-              name={icon}
-              size={28}
-              color={isSelected ? colors.gold : colors.textSecondary}
-              style={styles.cardIcon}
-            />
-            <Text style={[styles.cardText, isSelected && styles.cardTextSelected]}>
-              {label}
-            </Text>
-            {isSelected && (
-              <Ionicons
-                name="checkmark-circle"
-                size={18}
-                color={colors.gold}
-                style={styles.checkIcon}
-              />
-            )}
-          </LinearGradient>
-        </Pressable>
-      </Animated.View>
-    );
-  };
-
   return (
     <ScreenBackground style={styles.container}>
       <Text style={styles.title}>Choose Your Board</Text>
@@ -73,9 +71,21 @@ export default function BoardSelectScreen({ navigation, route }) {
       </Text>
 
       <View style={styles.row}>
-        <BoardCard label="NCERT" icon="book-outline" animatedX={leftX} />
+        <BoardCard
+          label="NCERT"
+          icon="book-outline"
+          animatedX={leftX}
+          isSelected={selected === 'NCERT'}
+          onPress={() => setSelected('NCERT')}
+        />
         <View style={{ width: spacing.md }} />
-        <BoardCard label="CBSE" icon="school-outline" animatedX={rightX} />
+        <BoardCard
+          label="CBSE"
+          icon="school-outline"
+          animatedX={rightX}
+          isSelected={selected === 'CBSE'}
+          onPress={() => setSelected('CBSE')}
+        />
       </View>
 
       <PremiumButton
