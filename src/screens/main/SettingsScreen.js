@@ -5,6 +5,7 @@ import ScreenBackground from '../../components/ScreenBackground';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { tapFeedback } from '../../utils/haptics';
 import { getIsPremium, subscribeToPremiumStatus } from '../../services/premiumService';
+import { showInterstitialAd } from '../../services/adsService';
 
 const SUPPORT_EMAIL = 'klariumai@gmail.com';
 
@@ -30,6 +31,16 @@ export default function SettingsScreen({ navigation }) {
   const go = (screen) => {
     tapFeedback();
     navigation.navigate(screen);
+  };
+
+  // Shows a full-screen interstitial ad first (free users only), then opens
+  // the Gemini API Key screen. Premium users skip straight there, no ad.
+  const openApiKeyScreen = async () => {
+    tapFeedback();
+    if (!isPremium) {
+      await showInterstitialAd();
+    }
+    navigation.navigate('ApiKeyScreen');
   };
 
   const MenuRow = ({ icon, title, subtitle, onPress, highlighted }) => (
@@ -73,7 +84,7 @@ export default function SettingsScreen({ navigation }) {
           icon="key"
           title="Gemini API Key"
           subtitle="Connect or update your AI key"
-          onPress={() => go('ApiKeyScreen')}
+          onPress={openApiKeyScreen}
         />
 
         <MenuRow
