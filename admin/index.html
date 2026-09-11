@@ -1,452 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="robots" content="noindex, nofollow" />
-<title>KLARIUM AI — Admin Panel</title>
-<style>
-  :root {
-    --bg: #0B0B14;
-    --surface: #171724;
-    --surface2: #1F1F30;
-    --border: #2A2A3D;
-    --gold: #D4AF37;
-    --text: #F2F2F5;
-    --muted: #9A9AAE;
-    --danger: #E45858;
-    --ok: #4CAF7D;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, Roboto, Arial, sans-serif;
-  }
-  .center-screen {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    text-align: center;
-  }
-  h1 { color: var(--gold); font-size: 22px; margin-bottom: 8px; }
-  p.sub { color: var(--muted); margin-top: 0; }
-  button {
-    font-family: inherit;
-    cursor: pointer;
-    border: none;
-    border-radius: 8px;
-  }
-  .btn-primary {
-    background: var(--gold);
-    color: #1a1a1a;
-    font-weight: 600;
-    padding: 12px 24px;
-    font-size: 15px;
-    margin-top: 16px;
-  }
-  header.topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    z-index: 5;
-  }
-  header.topbar h2 { margin: 0; font-size: 17px; color: var(--gold); }
-  .signout-btn {
-    background: var(--surface2);
-    color: var(--text);
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-  main { padding: 12px; max-width: 700px; margin: 0 auto; }
-  .stats-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-  .stat-chip {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .stat-chip b { color: var(--text); }
-  .notify-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 14px;
-    margin-bottom: 16px;
-  }
-  .notify-box h3 {
-    margin: 0 0 10px 0;
-    color: var(--gold);
-    font-size: 15px;
-  }
-  .notify-box input, .notify-box textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
-    font-size: 14px;
-    margin-bottom: 10px;
-    font-family: inherit;
-  }
-  .notify-box textarea { resize: vertical; min-height: 60px; }
-  .notify-box button {
-    background: var(--gold);
-    color: #1a1a1a;
-    font-weight: 600;
-    padding: 10px 18px;
-    font-size: 14px;
-  }
-  .notify-box button:disabled {
-    opacity: 0.6;
-  }
-  #notifyStatus {
-    font-size: 13px;
-    color: var(--muted);
-    margin-top: 8px;
-  }
-  input#search {
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text);
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-  .user-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 10px;
-  }
-  .user-card.banned { border-color: var(--danger); opacity: 0.75; }
-  .user-top { display: flex; gap: 10px; align-items: center; }
-  .avatar {
-    width: 42px; height: 42px; border-radius: 50%;
-    background: var(--surface2); object-fit: cover; flex-shrink: 0;
-  }
-  .user-name { font-weight: 600; font-size: 15px; }
-  .user-email { color: var(--muted); font-size: 12px; word-break: break-all; }
-  .user-meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
-  .badge {
-    display: inline-block;
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 20px;
-    margin-left: 6px;
-  }
-  .badge-premium { background: rgba(212,175,55,0.18); color: var(--gold); }
-  .badge-banned { background: rgba(228,88,88,0.18); color: var(--danger); }
-  .actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-    align-items: center;
-  }
-  .actions button {
-    background: var(--surface2);
-    color: var(--text);
-    padding: 8px 10px;
-    font-size: 13px;
-  }
-  .actions button.toggle-on { background: var(--gold); color: #1a1a1a; font-weight: 600; }
-  .actions button.danger { background: var(--danger); color: #fff; }
-  .score-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background: var(--surface2);
-    border-radius: 8px;
-    padding: 6px 8px;
-  }
-  .score-group input {
-    width: 44px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-size: 13px;
-    padding: 4px 6px;
-    text-align: center;
-  }
-  .score-group span { font-size: 13px; color: var(--muted); }
-  .score-group button {
-    background: var(--gold);
-    color: #1a1a1a;
-    font-weight: 600;
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-  #loadingMsg, #emptyMsg { color: var(--muted); text-align: center; padding: 20px; }
-  #savedToast {
-    position: fixed;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: var(--ok);
-    color: #0a1f14;
-    font-weight: 600;
-    font-size: 13px;
-    padding: 8px 16px;
-    border-radius: 20px;
-    opacity: 0;
-    transition: opacity 0.2s;
-    pointer-events: none;
-  }
-  #savedToast.show { opacity: 1; }
-</style>
-</head>
-<body>
-
-<div id="loginScreen" class="center-screen">
-  <h1>KLARIUM AI — Admin Panel</h1>
-  <p class="sub">Sign in with the admin Google account to continue.</p>
-  <button class="btn-primary" id="signInBtn">Sign in with Google</button>
-</div>
-
-<div id="deniedScreen" class="center-screen" style="display:none;">
-  <h1>Access Denied</h1>
-  <p class="sub">This account is not authorized to view the admin panel.</p>
-  <button class="btn-primary" id="signOutDeniedBtn">Sign out</button>
-</div>
-
-<div id="adminScreen" style="display:none;">
-  <header class="topbar">
-    <h2>KLARIUM AI Admin</h2>
-    <button class="signout-btn" id="signOutBtn">Sign out</button>
-  </header>
-  <main>
-    <div class="stats-row">
-      <div class="stat-chip">Total: <b id="statTotal">0</b></div>
-      <div class="stat-chip">Premium: <b id="statPremium">0</b></div>
-      <div class="stat-chip">Banned: <b id="statBanned">0</b></div>
-    </div>
-
-    <div class="notify-box">
-      <h3>Send Notification to All Students</h3>
-      <input id="notifyTitle" type="text" placeholder="Title (e.g. New Quiz Available!)" />
-      <textarea id="notifyDesc" placeholder="Description..."></textarea>
-      <button id="notifySendBtn">Send to All</button>
-      <div id="notifyStatus"></div>
-    </div>
-
-    <input id="search" type="text" placeholder="Search by name or email..." />
-    <div id="loadingMsg">Loading students...</div>
-    <div id="emptyMsg" style="display:none;">No students found.</div>
-    <div id="userList"></div>
-  </main>
-</div>
-
-<div id="savedToast">Saved ✓</div>
-
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyCdt2hnTGyfQTjjHKy1bcMtuNQWgE-wCwM",
-    authDomain: "klarium-ai.firebaseapp.com",
-    projectId: "klarium-ai",
-    storageBucket: "klarium-ai.firebasestorage.app",
-    messagingSenderId: "246389408868",
-    appId: "1:246389408868:web:37687b69b2f63f63ad0b71",
-  };
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.firestore();
-
-  // Only this exact email may use the admin panel. This is a UX gate only —
-  // the REAL security is enforced by Firestore rules (isAdmin() check
-  // there), so even if someone bypassed this screen, they still couldn't
-  // read/write other users' data.
-  const ADMIN_EMAIL = 'mdjawedansari567875@gmail.com';
-
-  const loginScreen = document.getElementById('loginScreen');
-  const deniedScreen = document.getElementById('deniedScreen');
-  const adminScreen = document.getElementById('adminScreen');
-  const toast = document.getElementById('savedToast');
-
-  function showToast(msg) {
-    toast.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 1400);
-  }
-
-  document.getElementById('signInBtn').onclick = () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider).catch((e) => alert('Sign-in failed: ' + e.message));
-  };
-  document.getElementById('signOutBtn').onclick = () => auth.signOut();
-  document.getElementById('signOutDeniedBtn').onclick = () => auth.signOut();
-
-  let allUsers = [];
-
-  auth.onAuthStateChanged((user) => {
-    loginScreen.style.display = 'none';
-    deniedScreen.style.display = 'none';
-    adminScreen.style.display = 'none';
-
-    if (!user) {
-      loginScreen.style.display = 'flex';
-      return;
-    }
-    if (user.email !== ADMIN_EMAIL) {
-      deniedScreen.style.display = 'flex';
-      return;
-    }
-    adminScreen.style.display = 'block';
-    loadUsers();
-  });
-
-  function loadUsers() {
-    document.getElementById('loadingMsg').style.display = 'block';
-    db.collection('users').get().then((snapshot) => {
-      allUsers = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      document.getElementById('loadingMsg').style.display = 'none';
-      renderUsers(allUsers);
-    }).catch((e) => {
-      document.getElementById('loadingMsg').textContent = 'Failed to load: ' + e.message;
-    });
-  }
-
-  function renderUsers(list) {
-    const container = document.getElementById('userList');
-    const emptyMsg = document.getElementById('emptyMsg');
-    container.innerHTML = '';
-
-    document.getElementById('statTotal').textContent = allUsers.length;
-    document.getElementById('statPremium').textContent = allUsers.filter(u => u.isPremium).length;
-    document.getElementById('statBanned').textContent = allUsers.filter(u => u.banned).length;
-
-    if (list.length === 0) {
-      emptyMsg.style.display = 'block';
-      return;
-    }
-    emptyMsg.style.display = 'none';
-
-    list.forEach((u) => {
-      const card = document.createElement('div');
-      card.className = 'user-card' + (u.banned ? ' banned' : '');
-
-      const displayName = u.username || u.googleName || '(no name)';
-      const photo = u.photoURL || '';
-      const score = typeof u.points === 'number' ? u.points : 0;
-      const total = typeof u.pointsTotal === 'number' ? u.pointsTotal : 100;
-
-      card.innerHTML = `
-        <div class="user-top">
-          ${photo ? `<img class="avatar" src="${photo}" />` : `<div class="avatar"></div>`}
-          <div>
-            <div class="user-name">${escapeHtml(displayName)}
-              ${u.isPremium ? '<span class="badge badge-premium">PREMIUM</span>' : ''}
-              ${u.banned ? '<span class="badge badge-banned">BANNED</span>' : ''}
-            </div>
-            <div class="user-email">${escapeHtml(u.email || 'no email')}</div>
-            <div class="user-meta">${u.classNumber ? 'Class ' + escapeHtml(String(u.classNumber)) : ''} ${u.board ? '· ' + escapeHtml(u.board) : ''}</div>
-          </div>
-        </div>
-        <div class="actions">
-          <div class="score-group">
-            <input type="number" class="score-input" value="${score}" min="0" />
-            <span>/</span>
-            <input type="number" class="total-input" value="${total}" min="1" />
-            <button data-action="save-score">Save Score</button>
-          </div>
-          <button data-action="premium" class="${u.isPremium ? 'toggle-on' : ''}">${u.isPremium ? 'Premium ON' : 'Grant Premium'}</button>
-          <button data-action="ban" class="${u.banned ? 'danger' : ''}">${u.banned ? 'Unban' : 'Ban'}</button>
-        </div>
-      `;
-
-      const scoreInput = card.querySelector('.score-input');
-      const totalInput = card.querySelector('.total-input');
-
-      card.querySelector('[data-action="save-score"]').onclick = () => {
-        const newScore = Math.max(0, parseInt(scoreInput.value, 10) || 0);
-        const newTotal = Math.max(1, parseInt(totalInput.value, 10) || 1);
-        saveScore(u, newScore, newTotal);
-      };
-      card.querySelector('[data-action="premium"]').onclick = () => toggleField(u.id, 'isPremium', !u.isPremium);
-      card.querySelector('[data-action="ban"]').onclick = () => toggleField(u.id, 'banned', !u.banned);
-
-      container.appendChild(card);
-    });
-  }
-
-  // Saves the admin-set score/total on the user doc, AND mirrors it onto the
-  // public leaderboard entry as "score/total" — same format the app already
-  // uses for real weekly-quiz results, so both look identical to students.
-  function saveScore(u, score, total) {
-    const displayName = u.username || u.googleName || 'Student';
-
-    const batch = db.batch();
-    batch.update(db.collection('users').doc(u.id), {
-      points: score,
-      pointsTotal: total,
-      updatedAt: Date.now(),
-    });
-    batch.set(db.collection('leaderboard').doc(u.id), {
-      name: displayName,
-      photoURL: u.photoURL || null,
-      score: score,
-      total: total,
-      date: new Date().toISOString().slice(0, 10),
-      updatedAt: Date.now(),
-    }, { merge: true });
-
-    batch.commit().then(() => {
-      showToast('Saved ✓');
-      loadUsers();
-    }).catch((e) => alert('Failed: ' + e.message));
-  }
-
-  function toggleField(uid, field, value) {
-    db.collection('users').doc(uid).update({
-      [field]: value,
-      updatedAt: Date.now(),
-    }).then(() => {
-      showToast('Saved ✓');
-      loadUsers();
-    }).catch((e) => alert('Failed: ' + e.message));
-  }
-
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, (m) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[m]));
-  }
-
-  document.getElementById('search').addEventListener('input', (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    if (!q) return renderUsers(allUsers);
-    renderUsers(allUsers.filter((u) =>
-      (u.username || '').toLowerCase().includes(q) ||
-      (u.googleName || '').toLowerCase().includes(q) ||
-      (u.email || '').toLowerCase().includes(q)
-    ));
-  });
-
-  // --- Send push notification to every student that has a saved push token ---
+// --- Send push notification to every student that has a saved push token ---
   // Uses Expo's free push notification service directly from the browser —
   // no backend/server needed. Tokens come from users/{uid}.expoPushToken,
   // saved by the app itself (pushTokenService.js) after the student grants
@@ -474,40 +26,47 @@
     btn.disabled = true;
     statusEl.textContent = `Sending to ${tokens.length} student(s)...`;
 
-    // Expo's push endpoint accepts up to 100 messages per request, so split
-    // into chunks of 100 tokens each.
     const chunks = [];
     for (let i = 0; i < tokens.length; i += 100) {
       chunks.push(tokens.slice(i, i + 100));
     }
 
-    try {
-      for (const chunk of chunks) {
-        const messages = chunk.map((token) => ({
-          to: token,
-          title,
-          body,
-          sound: 'default',
-        }));
-        await fetch('https://exp.host/--/api/v2/push/send', {
+    let sentCount = 0;
+    let failedChunks = 0;
+
+    for (const chunk of chunks) {
+      const messages = chunk.map((token) => ({
+        to: token,
+        title,
+        body,
+        sound: 'default',
+      }));
+      try {
+        const res = await fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
           headers: {
-            'Accept': 'application/json',
-            'Accept-Encoding': 'gzip, deflate',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(messages),
         });
+        if (res.ok) {
+          sentCount += chunk.length;
+        } else {
+          failedChunks += 1;
+        }
+      } catch (e) {
+        failedChunks += 1;
       }
-      statusEl.textContent = `Sent to ${tokens.length} student(s) ✓`;
+    }
+
+    btn.disabled = false;
+    if (sentCount > 0 && failedChunks === 0) {
+      statusEl.textContent = `Sent to ${sentCount} student(s) ✓`;
       document.getElementById('notifyTitle').value = '';
       document.getElementById('notifyDesc').value = '';
-    } catch (e) {
-      statusEl.textContent = 'Failed to send: ' + e.message;
-    } finally {
-      btn.disabled = false;
+    } else if (sentCount > 0) {
+      statusEl.textContent = `Sent to ${sentCount} student(s), but some failed — check your network and try again if needed.`;
+    } else {
+      statusEl.textContent = 'Failed to send — please check your internet connection (try switching to Wi-Fi or a stronger signal) and try again.';
     }
   };
-</script>
-</body>
-</html>
