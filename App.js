@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ActivityIndicator, Text, StyleSheet, Alert } from 'react-native';
+import { ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { useFonts, Poppins_400Regular, Poppins_600SemiBold, Poppins_700Bold, Poppins_800ExtraBold } from '@expo-google-fonts/poppins';
 import OnboardingNavigator from './src/navigation/OnboardingNavigator';
 import MainTabNavigator from './src/navigation/MainTabNavigator';
@@ -30,56 +30,46 @@ export default function App() {
   });
 
   useEffect(() => {
-    // Initialize the ads SDK as soon as the app starts, so the banner ad on
-    // the Home screen is ready to load the first time a non-premium user
-    // opens it (rather than waiting until that screen mounts).
     initAds();
 
     (async () => {
-      // Sign the device in anonymously with Firebase first — this gives every
-      // user a stable, unique ID that the leaderboard is keyed on. It happens
-      // silently in the background; the user never sees a login screen.
+      let uid = null;
+
       try {
         await ensureSignedIn();
+        uid = getCurrentUid();
       } catch (e) {
-        // If this fails (e.g. no internet on first launch), the app still
-        // works locally — the leaderboard just won't sync until it succeeds.
         console.warn('Firebase sign-in failed:', e.message);
       }
 
-      // Pull this student's admin-controlled fields (banned, isPremium) from
-      // Firestore on every launch, so changes made in the admin panel take
-      // effect the next time the app is opened.
       try {
-        const uid = getCurrentUid();
-        Alert.alert('DEBUG 1', 'uid = ' + String(uid));
-
         const record = await getUserRecord(uid);
-        Alert.alert('DEBUG 2', 'record fetched OK. banned=' + record?.banned + ' premium=' + record?.isPremium);
-
         if (record?.banned) {
           setBanned(true);
           setChecking(false);
           return;
         }
         await syncPremiumFromServer(record?.isPremium);
-
-        // Register this device for push notifications (asks permission the
-        // first time), saving the token so the admin panel can broadcast
-        // announcements to every student later.
-        Alert.alert('DEBUG 3', 'About to call registerForPushNotifications');
-        await registerForPushNotifications(uid);
       } catch (e) {
-        Alert.alert('DEBUG ERROR (outer)', e.message || String(e));
+        console.warn('User record check failed:', e.message);
       }
 
-      // Local daily reminder so students don't lose their streak. Free,
-      // no backend required.
       setupStreakReminder().catch(() => {});
 
       const flag = await AsyncStorage.getItem('klarium_onboarded');
       setOnboarded(flag === 'true');
       setChecking(false);
+
+      // Registers this device for push notifications in the background —
+      // any failure here is logged to the console only and never shown to
+      // the student, since it's not something they can act on directly.
+      if (uid) {
+        setTimeout(() => {
+          registerForPushNotifications(uid).catch((e) => {
+            console.warn('Push registration failed:', e.message);
+          });
+        }, 1500);
+      }
     })();
   }, []);
 
