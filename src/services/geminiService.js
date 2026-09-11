@@ -164,11 +164,16 @@ export async function askTutorPhoto({
 // Shared quiz-generation logic used by both the weekly streak test and the
 // on-demand practice quiz — asks Gemini for a strict-JSON multiple choice
 // quiz based on a list of topics, and safely parses the result.
+// Language rule: NCERT board students get questions in Hindi, CBSE board
+// students get questions in English — matching what each board typically
+// expects in their region.
 async function requestQuiz({ topics, classNumber, board }) {
   const key = await getValidApiKey();
+  const language = board === 'NCERT' ? 'Hindi (Devanagari script)' : 'English';
   const prompt = `
 Create a 5-question multiple choice quiz for a Class ${classNumber} (${board}) student
 based ONLY on these topics they studied: ${topics.join(', ')}.
+Write the question text and all 4 options entirely in ${language}.
 Respond with ONLY valid JSON, no markdown, in this exact shape:
 [{"question": "...", "options": ["A","B","C","D"], "correctIndex": 0}]
 `;
