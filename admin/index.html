@@ -121,6 +121,7 @@
     font-size: 13px;
     color: var(--muted);
     margin-top: 8px;
+    word-break: break-word;
   }
   input#search {
     width: 100%;
@@ -469,7 +470,7 @@
     }
 
     let sentCount = 0;
-    let failedChunks = 0;
+    let lastErrorDetail = '';
 
     for (const chunk of chunks) {
       const messages = chunk.map((token) => ({
@@ -486,25 +487,26 @@
           },
           body: JSON.stringify(messages),
         });
+        const resultText = await res.text();
         if (res.ok) {
           sentCount += chunk.length;
         } else {
-          failedChunks += 1;
+          lastErrorDetail = `HTTP ${res.status}: ${resultText}`;
         }
       } catch (e) {
-        failedChunks += 1;
+        lastErrorDetail = e.message || String(e);
       }
     }
 
     btn.disabled = false;
-    if (sentCount > 0 && failedChunks === 0) {
+    if (sentCount > 0 && !lastErrorDetail) {
       statusEl.textContent = `Sent to ${sentCount} student(s) ✓`;
       document.getElementById('notifyTitle').value = '';
       document.getElementById('notifyDesc').value = '';
     } else if (sentCount > 0) {
-      statusEl.textContent = `Sent to ${sentCount} student(s), but some failed — check your network and try again if needed.`;
+      statusEl.textContent = `Sent to ${sentCount} student(s), some failed: ${lastErrorDetail}`;
     } else {
-      statusEl.textContent = 'Failed to send — please check your internet connection (try switching to Wi-Fi or a stronger signal) and try again.';
+      statusEl.textContent = `Failed: ${lastErrorDetail}`;
     }
   };
 </script>
