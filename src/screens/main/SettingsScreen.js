@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
@@ -11,6 +11,8 @@ const SUPPORT_EMAIL = 'klariumai@gmail.com';
 
 export default function SettingsScreen({ navigation }) {
   const [isPremium, setIsPremium] = useState(false);
+  const titleTapCount = useRef(0);
+  const titleTapTimer = useRef(null);
 
   useEffect(() => {
     getIsPremium().then(setIsPremium);
@@ -21,8 +23,6 @@ export default function SettingsScreen({ navigation }) {
   const openSupportEmail = () => {
     tapFeedback();
     const url = `mailto:${SUPPORT_EMAIL}?subject=KLARIUM AI Support`;
-    // Skip the canOpenURL check — on some Android versions it incorrectly
-    // reports mail apps as unavailable even when Gmail is installed.
     Linking.openURL(url).catch(() => {
       Alert.alert('Contact Support', SUPPORT_EMAIL);
     });
@@ -33,14 +33,30 @@ export default function SettingsScreen({ navigation }) {
     navigation.navigate(screen);
   };
 
-  // Shows a full-screen interstitial ad first (free users only), then opens
-  // the Gemini API Key screen. Premium users skip straight there, no ad.
   const openApiKeyScreen = async () => {
     tapFeedback();
     if (!isPremium) {
       await showInterstitialAd();
     }
     navigation.navigate('ApiKeyScreen');
+  };
+
+  // Hidden entry point to the admin notification screen — tap the "Settings"
+  // title 5 times within 2 seconds. Not visible to students; the screen
+  // itself also checks the signed-in email before showing anything.
+  const handleTitleTap = () => {
+    titleTapCount.current += 1;
+    if (titleTapTimer.current) clearTimeout(titleTapTimer.current);
+
+    if (titleTapCount.current >= 5) {
+      titleTapCount.current = 0;
+      navigation.navigate('AdminNotifyScreen');
+      return;
+    }
+
+    titleTapTimer.current = setTimeout(() => {
+      titleTapCount.current = 0;
+    }, 2000);
   };
 
   const MenuRow = ({ icon, title, subtitle, onPress, highlighted }) => (
@@ -70,7 +86,9 @@ export default function SettingsScreen({ navigation }) {
   return (
     <ScreenBackground>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={typography.h1}>Settings</Text>
+        <Pressable onPress={handleTitleTap}>
+          <Text style={typography.h1}>Settings</Text>
+        </Pressable>
 
         <MenuRow
           icon="sparkles"
