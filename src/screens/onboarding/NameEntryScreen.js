@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { StyleSheet, Text, TextInput, View, Pressable, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { statusCodes } from '@react-native-google-signin/google-signin';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,9 +14,14 @@ export default function NameEntryScreen({ navigation, route }) {
   const [name, setName] = useState('');
   const [signingIn, setSigningIn] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  const canContinue =
+    name.trim().length > 0 && acceptedPrivacy && acceptedTerms && !signingIn;
 
   const handleContinue = async () => {
-    if (signingIn) return;
+    if (signingIn || !canContinue) return;
     setSigningIn(true);
     try {
       // Opens the native Google account picker. The Firebase account that
@@ -63,6 +68,15 @@ export default function NameEntryScreen({ navigation, route }) {
     }
   };
 
+  const Checkbox = ({ checked, onToggle, children }) => (
+    <Pressable style={styles.checkboxRow} onPress={onToggle}>
+      <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+        {checked && <Ionicons name="checkmark" size={14} color="#0B0B14" />}
+      </View>
+      <Text style={styles.checkboxLabel}>{children}</Text>
+    </Pressable>
+  );
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -93,9 +107,18 @@ export default function NameEntryScreen({ navigation, route }) {
           />
         </View>
 
+        <View style={styles.checkboxGroup}>
+          <Checkbox checked={acceptedPrivacy} onToggle={() => setAcceptedPrivacy((v) => !v)}>
+            I accept your Privacy Policy
+          </Checkbox>
+          <Checkbox checked={acceptedTerms} onToggle={() => setAcceptedTerms((v) => !v)}>
+            I accept your Terms
+          </Checkbox>
+        </View>
+
         <PremiumButton
           label={signingIn ? 'Signing in...' : 'Continue with Google'}
-          disabled={name.trim().length === 0 || signingIn}
+          disabled={!canContinue}
           onPress={handleContinue}
           style={styles.button}
         />
@@ -141,6 +164,32 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     color: colors.textPrimary,
     fontSize: 17,
+  },
+  checkboxGroup: {
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: colors.gold,
+    borderColor: colors.gold,
+  },
+  checkboxLabel: {
+    ...typography.body,
+    fontSize: 14,
   },
   button: {
     marginTop: spacing.xl,
