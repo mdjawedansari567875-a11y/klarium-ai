@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { StyleSheet, Text, TextInput, View, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { statusCodes } from '@react-native-google-signin/google-signin';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
 import PremiumButton from '../../components/PremiumButton';
-import { colors, radius, spacing, typography } from '../../theme/theme';
+import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { signInWithGoogle, getCurrentUid } from '../../services/authService';
 import { ensureUserRecord, updateUserProfile } from '../../services/userService';
 
@@ -12,6 +13,7 @@ export default function NameEntryScreen({ navigation, route }) {
   const { classNumber, board } = route.params;
   const [name, setName] = useState('');
   const [signingIn, setSigningIn] = useState(false);
+  const [focused, setFocused] = useState(false);
 
   const handleContinue = async () => {
     if (signingIn) return;
@@ -72,14 +74,24 @@ export default function NameEntryScreen({ navigation, route }) {
           Class {classNumber} · {board}
         </Text>
 
-        <TextInput
-          value={name}
-          onChangeText={setName}
-          placeholder="Enter your name"
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-          autoFocus
-        />
+        <View style={[styles.inputWrapper, shadow.card, focused && styles.inputWrapperFocused]}>
+          <Ionicons
+            name="person-circle-outline"
+            size={20}
+            color={focused ? colors.gold : colors.textMuted}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            value={name}
+            onChangeText={setName}
+            placeholder="Enter your name"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+            autoFocus
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+          />
+        </View>
 
         <PremiumButton
           label={signingIn ? 'Signing in...' : 'Continue with Google'}
@@ -108,12 +120,24 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxl,
     color: colors.gold,
   },
-  input: {
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
+  },
+  inputWrapperFocused: {
+    borderColor: colors.gold,
+    borderWidth: 1.5,
+  },
+  inputIcon: {
+    marginRight: spacing.sm,
+  },
+  input: {
+    flex: 1,
     paddingVertical: 16,
     color: colors.textPrimary,
     fontSize: 17,
