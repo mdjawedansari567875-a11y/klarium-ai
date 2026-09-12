@@ -7,6 +7,7 @@ import PremiumButton from '../../components/PremiumButton';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 
 const { width } = Dimensions.get('window');
+const CARD_HEIGHT = 150;
 
 // Defined OUTSIDE the screen component so it never gets recreated on every
 // re-render — keeping it inside caused React to remount the cards (briefly
@@ -89,14 +90,15 @@ export default function BoardSelectScreen({ navigation, route }) {
           />
         </View>
 
-        <PremiumButton
-          label="Continue"
-          disabled={!selected}
-          onPress={() =>
-            navigation.navigate('NameEntry', { classNumber, board: selected })
-          }
-          style={styles.button}
-        />
+        <View style={styles.buttonWrapper}>
+          <PremiumButton
+            label="Continue"
+            disabled={!selected}
+            onPress={() =>
+              navigation.navigate('NameEntry', { classNumber, board: selected })
+            }
+          />
+        </View>
       </View>
     </ScreenBackground>
   );
@@ -124,14 +126,14 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    marginTop: spacing.lg,
+    height: CARD_HEIGHT,
   },
   cardWrapper: {
     flex: 1,
     borderRadius: radius.lg,
   },
   card: {
-    aspectRatio: 1,
+    height: CARD_HEIGHT,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
     top: 10,
     right: 10,
   },
-  button: {
-    marginTop: spacing.xxl,
+  buttonWrapper: {
+    marginTop: 60,
   },
 });
