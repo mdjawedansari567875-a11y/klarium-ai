@@ -312,7 +312,7 @@
       loginScreen.style.display = 'flex';
       return;
     }
-    if (user.email !== ADMIN_EMAIL) {
+    if (!ADMIN_EMAILS.includes(user.email)) {
       deniedScreen.style.display = 'flex';
       return;
     }
