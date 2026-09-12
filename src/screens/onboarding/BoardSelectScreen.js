@@ -64,46 +64,53 @@ export default function BoardSelectScreen({ navigation, route }) {
   }, []);
 
   return (
-    <ScreenBackground style={styles.container}>
-      <Text style={styles.title}>Choose Your Board</Text>
-      <Text style={styles.subtitle}>
-        Class {classNumber} · AI will teach you based on this curriculum
-      </Text>
+    <ScreenBackground style={styles.screen}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Choose Your Board</Text>
+        <Text style={styles.subtitle}>
+          Class {classNumber} · AI will teach you based on this curriculum
+        </Text>
 
-      <View style={styles.row}>
-        <BoardCard
-          label="NCERT"
-          icon="book-outline"
-          animatedX={leftX}
-          isSelected={selected === 'NCERT'}
-          onPress={() => setSelected('NCERT')}
-        />
-        <View style={{ width: spacing.md }} />
-        <BoardCard
-          label="CBSE"
-          icon="school-outline"
-          animatedX={rightX}
-          isSelected={selected === 'CBSE'}
-          onPress={() => setSelected('CBSE')}
+        <View style={styles.row}>
+          <BoardCard
+            label="NCERT"
+            icon="book-outline"
+            animatedX={leftX}
+            isSelected={selected === 'NCERT'}
+            onPress={() => setSelected('NCERT')}
+          />
+          <View style={{ width: spacing.md }} />
+          <BoardCard
+            label="CBSE"
+            icon="school-outline"
+            animatedX={rightX}
+            isSelected={selected === 'CBSE'}
+            onPress={() => setSelected('CBSE')}
+          />
+        </View>
+
+        <PremiumButton
+          label="Continue"
+          disabled={!selected}
+          onPress={() =>
+            navigation.navigate('NameEntry', { classNumber, board: selected })
+          }
+          style={styles.button}
         />
       </View>
-
-      <PremiumButton
-        label="Continue"
-        disabled={!selected}
-        onPress={() =>
-          navigation.navigate('NameEntry', { classNumber, board: selected })
-        }
-        style={styles.button}
-      />
     </ScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   container: {
+    flex: 1,
     paddingHorizontal: spacing.lg,
     paddingTop: 100,
+    paddingBottom: spacing.lg,
   },
   title: {
     ...typography.h1,
@@ -153,7 +160,6 @@ const styles = StyleSheet.create({
     right: 10,
   },
   button: {
-    marginTop: 'auto',
-    marginBottom: spacing.lg,
+    marginTop: spacing.xxl,
   },
 });
