@@ -15,6 +15,14 @@ export default function TestModal({ visible, questions, onFinish, loading, mode 
 
   const current = questions?.[step];
   const isPractice = mode === 'practice';
+  const noQuestions = !loading && (!questions || questions.length === 0);
+
+  const resetState = () => {
+    setStep(0);
+    setSelected(null);
+    setScore(0);
+    setDone(false);
+  };
 
   const handleAnswer = (index) => {
     setSelected(index);
@@ -34,16 +42,25 @@ export default function TestModal({ visible, questions, onFinish, loading, mode 
 
   const handleClose = () => {
     onFinish(score, questions?.length || 0);
-    setStep(0);
-    setSelected(null);
-    setScore(0);
-    setDone(false);
+    resetState();
+  };
+
+  // Used when there's nothing to interact with yet (loading, or the quiz
+  // failed to generate) — lets the student dismiss the dialog instead of
+  // being stuck with no way out.
+  const handleDismiss = () => {
+    if (loading) return; // don't allow closing mid-load, only once it's clear there's nothing
+    onFinish(score, questions?.length || 0);
+    resetState();
   };
 
   return (
     <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.overlay}>
-        <View style={[styles.card, shadow.card]}>
+      <Pressable
+        style={styles.overlay}
+        onPress={noQuestions ? handleDismiss : undefined}
+      >
+        <Pressable style={[styles.card, shadow.card]} onPress={() => {}}>
           {loading ? (
             <>
               <ActivityIndicator color={colors.gold} size="large" />
@@ -96,10 +113,15 @@ export default function TestModal({ visible, questions, onFinish, loading, mode 
               })}
             </>
           ) : (
-            <Text style={typography.body}>No questions available.</Text>
+            <>
+              <Text style={[typography.body, { textAlign: 'center', marginBottom: spacing.lg }]}>
+                No questions available. Please check your internet connection and try again.
+              </Text>
+              <PremiumButton label="Close" onPress={handleDismiss} />
+            </>
           )}
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
