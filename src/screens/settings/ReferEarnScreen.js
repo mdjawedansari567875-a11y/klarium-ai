@@ -47,9 +47,13 @@ export default function ReferEarnScreen({ navigation }) {
           {loading ? (
             <ActivityIndicator color={colors.gold} />
           ) : (
-            <Text style={styles.code}>{code}</Text>
+            <Text style={styles.code} selectable>
+              {code}
+            </Text>
           )}
         </View>
+
+        <Text style={styles.copyHint}>Long-press the code above to copy it</Text>
 
         <PremiumButton
           label="Share Your Code"
@@ -97,13 +101,17 @@ const styles = StyleSheet.create({
     borderColor: colors.gold,
     paddingVertical: spacing.lg,
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
   },
   code: {
     fontSize: 32,
     fontWeight: '800',
     letterSpacing: 4,
     color: colors.gold,
+  },
+  copyHint: {
+    ...typography.caption,
+    marginBottom: spacing.lg,
   },
   button: {
     width: '100%',
