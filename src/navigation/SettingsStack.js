@@ -7,6 +7,7 @@ import PrivacyPolicyScreen from '../screens/settings/PrivacyPolicyScreen';
 import TermsScreen from '../screens/settings/TermsScreen';
 import GoPremiumScreen from '../screens/settings/GoPremiumScreen';
 import AdminNotifyScreen from '../screens/settings/AdminNotifyScreen';
+import ReferEarnScreen from '../screens/settings/ReferEarnScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,6 +21,7 @@ export default function SettingsStack() {
       <Stack.Screen name="TermsScreen" component={TermsScreen} />
       <Stack.Screen name="GoPremiumScreen" component={GoPremiumScreen} />
       <Stack.Screen name="AdminNotifyScreen" component={AdminNotifyScreen} />
+      <Stack.Screen name="ReferEarnScreen" component={ReferEarnScreen} />
     </Stack.Navigator>
   );
 }
