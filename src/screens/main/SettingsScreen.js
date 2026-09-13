@@ -99,6 +99,13 @@ export default function SettingsScreen({ navigation }) {
         />
 
         <MenuRow
+          icon="gift"
+          title="Refer & Earn"
+          subtitle="Give 3 days, get 3 days of Premium"
+          onPress={() => go('ReferEarnScreen')}
+        />
+
+        <MenuRow
           icon="key"
           title="Gemini API Key"
           subtitle="Connect or update your AI key"
