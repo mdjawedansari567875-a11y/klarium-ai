@@ -7,13 +7,15 @@ import ScreenBackground from '../../components/ScreenBackground';
 import PremiumButton from '../../components/PremiumButton';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { signInWithGoogle, getCurrentUid } from '../../services/authService';
-import { ensureUserRecord, updateUserProfile } from '../../services/userService';
+import { ensureUserRecord, updateUserProfile, applyReferralCode } from '../../services/userService';
 
 export default function NameEntryScreen({ navigation, route }) {
   const { classNumber, board } = route.params;
   const [name, setName] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [signingIn, setSigningIn] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [referralFocused, setReferralFocused] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -44,6 +46,23 @@ export default function NameEntryScreen({ navigation, route }) {
         classNumber,
         board,
       });
+
+      // If a referral code was entered, apply it — grants both this new
+      // student and the referrer a few days of free premium. This is a
+      // bonus, not critical to onboarding, so any failure here is silent.
+      if (referralCode.trim()) {
+        try {
+          const result = await applyReferralCode(uid, referralCode.trim());
+          if (result.applied) {
+            Alert.alert(
+              'Referral Applied! 🎉',
+              'You and your friend both got 3 days of Premium!'
+            );
+          }
+        } catch (e) {
+          // Silently ignore — referral is a nice-to-have, not essential.
+        }
+      }
 
       // Keep a local copy too, so Home/Settings can read it instantly
       // without hitting Firestore every time.
@@ -107,6 +126,32 @@ export default function NameEntryScreen({ navigation, route }) {
           />
         </View>
 
+        <View
+          style={[
+            styles.inputWrapper,
+            styles.referralWrapper,
+            shadow.card,
+            referralFocused && styles.inputWrapperFocused,
+          ]}
+        >
+          <Ionicons
+            name="gift-outline"
+            size={20}
+            color={referralFocused ? colors.gold : colors.textMuted}
+            style={styles.inputIcon}
+          />
+          <TextInput
+            value={referralCode}
+            onChangeText={setReferralCode}
+            placeholder="Referral code (optional)"
+            placeholderTextColor={colors.textMuted}
+            style={styles.input}
+            autoCapitalize="characters"
+            onFocus={() => setReferralFocused(true)}
+            onBlur={() => setReferralFocused(false)}
+          />
+        </View>
+
         <View style={styles.checkboxGroup}>
           <Checkbox checked={acceptedPrivacy} onToggle={() => setAcceptedPrivacy((v) => !v)}>
             I accept your Privacy Policy
@@ -151,6 +196,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
+  },
+  referralWrapper: {
+    marginTop: spacing.sm,
   },
   inputWrapperFocused: {
     borderColor: colors.gold,
