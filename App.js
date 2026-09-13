@@ -49,7 +49,9 @@ export default function App() {
           setChecking(false);
           return;
         }
-        await syncPremiumFromServer(record?.isPremium);
+        // premiumBonuses (Refer & Earn expiry timestamps) is passed alongside
+        // the admin's isPremium flag — either one being active grants premium.
+        await syncPremiumFromServer(record?.isPremium, record?.premiumBonuses);
       } catch (e) {
         console.warn('User record check failed:', e.message);
       }
@@ -60,9 +62,6 @@ export default function App() {
       setOnboarded(flag === 'true');
       setChecking(false);
 
-      // Registers this device for push notifications in the background —
-      // any failure here is logged to the console only and never shown to
-      // the student, since it's not something they can act on directly.
       if (uid) {
         setTimeout(() => {
           registerForPushNotifications(uid).catch((e) => {
