@@ -4,6 +4,8 @@ import WelcomeScreen from '../screens/onboarding/WelcomeScreen';
 import ClassSelectScreen from '../screens/onboarding/ClassSelectScreen';
 import BoardSelectScreen from '../screens/onboarding/BoardSelectScreen';
 import NameEntryScreen from '../screens/onboarding/NameEntryScreen';
+import PrivacyPolicyScreen from '../screens/settings/PrivacyPolicyScreen';
+import TermsScreen from '../screens/settings/TermsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -14,6 +16,8 @@ export default function OnboardingNavigator() {
       <Stack.Screen name="ClassSelect" component={ClassSelectScreen} />
       <Stack.Screen name="BoardSelect" component={BoardSelectScreen} />
       <Stack.Screen name="NameEntry" component={NameEntryScreen} />
+      <Stack.Screen name="PrivacyPolicyScreen" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="TermsScreen" component={TermsScreen} />
     </Stack.Navigator>
   );
 }
