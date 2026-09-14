@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenBackground from '../../components/ScreenBackground';
+import GlassCard from '../../components/GlassCard';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { tapFeedback } from '../../utils/haptics';
 import { getIsPremium, subscribeToPremiumStatus } from '../../services/premiumService';
@@ -59,29 +60,47 @@ export default function SettingsScreen({ navigation }) {
     }, 2000);
   };
 
-  const MenuRow = ({ icon, title, subtitle, onPress, highlighted }) => (
-    <Pressable
-      style={[styles.row, shadow.card, highlighted && styles.rowHighlighted]}
-      onPress={onPress}
-    >
-      <View style={[styles.rowIconCircle, highlighted && styles.rowIconCircleHighlighted]}>
-        <Ionicons name={icon} size={20} color={highlighted ? colors.background : colors.gold} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.rowTitle, highlighted && styles.rowTitleHighlighted]}>{title}</Text>
-        {subtitle ? (
-          <Text style={[styles.rowSubtitle, highlighted && styles.rowSubtitleHighlighted]}>
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-      <Ionicons
-        name="chevron-forward"
-        size={18}
-        color={highlighted ? colors.background : colors.textMuted}
-      />
-    </Pressable>
-  );
+  // The highlighted "Go Premium" row stays solid gold (a strong CTA), while
+  // every other row gets the frosted "Liquid Glass" treatment so it reads
+  // as premium UI throughout the whole screen.
+  const MenuRow = ({ icon, title, subtitle, onPress, highlighted }) => {
+    const rowContent = (
+      <>
+        <View style={[styles.rowIconCircle, highlighted && styles.rowIconCircleHighlighted]}>
+          <Ionicons name={icon} size={20} color={highlighted ? colors.background : colors.gold} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.rowTitle, highlighted && styles.rowTitleHighlighted]}>{title}</Text>
+          {subtitle ? (
+            <Text style={[styles.rowSubtitle, highlighted && styles.rowSubtitleHighlighted]}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons
+          name="chevron-forward"
+          size={18}
+          color={highlighted ? colors.background : colors.textMuted}
+        />
+      </>
+    );
+
+    if (highlighted) {
+      return (
+        <Pressable style={[styles.row, styles.rowHighlighted, shadow.card]} onPress={onPress}>
+          {rowContent}
+        </Pressable>
+      );
+    }
+
+    return (
+      <Pressable onPress={onPress} style={styles.rowMargin}>
+        <GlassCard radiusSize={radius.lg}>
+          <View style={styles.rowInner}>{rowContent}</View>
+        </GlassCard>
+      </Pressable>
+    );
+  };
 
   return (
     <ScreenBackground>
@@ -148,10 +167,17 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
   },
+  rowMargin: {
+    marginTop: spacing.lg,
+  },
+  rowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceElevated,
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.border,
