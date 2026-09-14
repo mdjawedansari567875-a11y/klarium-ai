@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Platform } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -16,9 +16,11 @@ const ICONS = {
   Settings: 'settings-sharp',
 };
 
-// Frosted "Liquid Glass" background behind the tab bar — replaces the
-// solid backgroundAlt fill so content scrolling underneath shows through
-// blurred, matching the header/input-bar glass treatment on Home.
+// Frosted "Liquid Glass" background behind the tab bar. NOTE: tabBarStyle is
+// NOT position:'absolute' here — that would require every screen (chat input,
+// lists) to add extra bottom padding to avoid being hidden behind the bar,
+// which caused the chat input to get covered. Kept in normal flow instead,
+// so nothing else needs to change; the blur still gives a frosted-glass look.
 function TabBarBackground() {
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -36,7 +38,6 @@ export default function MainTabNavigator() {
         tabBarActiveTintColor: colors.gold,
         tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          position: 'absolute',
           backgroundColor: 'transparent',
           borderTopColor: 'rgba(212,175,55,0.2)',
           borderTopWidth: 1,
