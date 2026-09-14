@@ -154,10 +154,19 @@ export default function NameEntryScreen({ navigation, route }) {
 
         <View style={styles.checkboxGroup}>
           <Checkbox checked={acceptedPrivacy} onToggle={() => setAcceptedPrivacy((v) => !v)}>
-            I accept your Privacy Policy
+            I accept your{' '}
+            <Text
+              style={styles.linkText}
+              onPress={() => navigation.navigate('PrivacyPolicyScreen')}
+            >
+              Privacy Policy
+            </Text>
           </Checkbox>
           <Checkbox checked={acceptedTerms} onToggle={() => setAcceptedTerms((v) => !v)}>
-            I accept your Terms
+            I accept your{' '}
+            <Text style={styles.linkText} onPress={() => navigation.navigate('TermsScreen')}>
+              Terms
+            </Text>
           </Checkbox>
         </View>
 
@@ -238,6 +247,10 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     ...typography.body,
     fontSize: 14,
+  },
+  linkText: {
+    color: '#4A9EFF',
+    textDecorationLine: 'underline',
   },
   button: {
     marginTop: spacing.xl,
