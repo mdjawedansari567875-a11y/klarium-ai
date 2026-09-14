@@ -19,9 +19,10 @@ export default function TermsScreen({ navigation }) {
 
         <Text style={styles.heading}>2. What KLARIUM AI Does</Text>
         <Text style={styles.paragraph}>
-          KLARIUM AI is an educational tutoring app that uses Google's Gemini AI to
-          explain NCERT/CBSE topics for Classes 1–12. It requires you to provide your
-          own free Gemini API key to function.
+          KLARIUM AI is an educational tutoring app for NCERT/CBSE Classes 1–12. It
+          uses Groq's AI to answer your text questions, and Google's Gemini AI to
+          answer questions sent as a photo or voice recording. It requires you to
+          provide your own free Groq and Gemini API keys to function.
         </Text>
 
         <Text style={styles.heading}>3. AI-Generated Content</Text>
@@ -31,26 +32,34 @@ export default function TermsScreen({ navigation }) {
           textbook.
         </Text>
 
-        <Text style={styles.heading}>4. Your API Key</Text>
+        <Text style={styles.heading}>4. Your API Keys</Text>
         <Text style={styles.paragraph}>
-          Your Gemini API key is stored only on your device. Usage of that key
-          (including any costs, if you enable billing on your Google account) is your
-          responsibility.
+          Your Groq and Gemini API keys are stored only on your device. Usage of those
+          keys (including any costs, if you enable billing on the relevant account) is
+          your responsibility.
         </Text>
 
-        <Text style={styles.heading}>5. Acceptable Use</Text>
+        <Text style={styles.heading}>5. Premium & Refer & Earn</Text>
+        <Text style={styles.paragraph}>
+          Premium status may be granted by the app admin, or earned temporarily
+          through the Refer & Earn feature. Referral-earned Premium expires
+          automatically after the stated period and is not transferable or
+          redeemable for cash.
+        </Text>
+
+        <Text style={styles.heading}>6. Acceptable Use</Text>
         <Text style={styles.paragraph}>
           Please use KLARIUM AI only for learning purposes. Do not use it to ask for
           or generate harmful, inappropriate, or dishonest content.
         </Text>
 
-        <Text style={styles.heading}>6. Changes to These Terms</Text>
+        <Text style={styles.heading}>7. Changes to These Terms</Text>
         <Text style={styles.paragraph}>
           We may update these terms as the app evolves. Continued use of the app means
           you accept the current terms.
         </Text>
 
-        <Text style={styles.heading}>7. Contact</Text>
+        <Text style={styles.heading}>8. Contact</Text>
         <Text style={styles.paragraph}>
           Questions about these terms can be sent to klariumai@gmail.com.
         </Text>
