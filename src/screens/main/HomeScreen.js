@@ -28,13 +28,8 @@ import { tapFeedback } from '../../utils/haptics';
 import { getBannerAdUnitId } from '../../services/adsService';
 import { getIsPremium, subscribeToPremiumStatus } from '../../services/premiumService';
 import { buildIllustrationUrl } from '../../services/pollinationsService';
-import {
-  askTutorText,
-  askTutorPhoto,
-  generateWeeklyQuiz,
-  generatePracticeQuiz,
-  transcribeAudio,
-} from '../../services/geminiService';
+import { askTutorText, generateWeeklyQuiz, generatePracticeQuiz } from '../../services/groqService';
+import { askTutorPhoto, transcribeAudio } from '../../services/geminiService';
 import {
   recordActiveDay,
   recordTopic,
@@ -57,6 +52,24 @@ function detectSpeechLanguage(text) {
   return /[\u0900-\u097F]/.test(text) ? 'hi-IN' : 'en-US';
 }
 
+// The chat history is kept in a neutral shape ({ role: 'user'|'ai', text })
+// and converted to whichever format each provider expects right before the
+// call — Groq (text chat) wants OpenAI-style messages, Gemini (photo) wants
+// its own contents/parts shape.
+function toGroqMessages(history) {
+  return history.map((h) => ({
+    role: h.role === 'user' ? 'user' : 'assistant',
+    content: h.text,
+  }));
+}
+
+function toGeminiContents(history) {
+  return history.map((h) => ({
+    role: h.role === 'user' ? 'user' : 'model',
+    parts: [{ text: h.text }],
+  }));
+}
+
 export default function HomeScreen() {
   const [profile, setProfile] = useState(null);
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
@@ -77,9 +90,8 @@ export default function HomeScreen() {
   const [isPremium, setIsPremiumState] = useState(false);
   const listRef = useRef(null);
   const recordingRef = useRef(null);
-  // Tracks the conversation in the format Gemini expects, so the AI
-  // remembers what was already discussed instead of starting fresh every
-  // message. Capped to the last 20 turns to keep requests reasonably sized.
+  // Neutral conversation memory ({ role: 'user'|'ai', text }), capped to the
+  // last 20 turns to keep requests reasonably sized.
   const historyRef = useRef([]);
 
   useEffect(() => {
@@ -98,10 +110,7 @@ export default function HomeScreen() {
             // (text-only turns), so context carries over across app restarts.
             historyRef.current = parsed
               .filter((m) => m.id !== 'welcome' && m.text)
-              .map((m) => ({
-                role: m.role === 'user' ? 'user' : 'model',
-                parts: [{ text: m.text }],
-              }))
+              .map((m) => ({ role: m.role, text: m.text }))
               .slice(-20);
           }
         } catch {}
@@ -206,17 +215,19 @@ export default function HomeScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
-  const pushErrorMessage = (idSuffix, fallbackText, e) => {
+  // `source` tells us which provider's key is missing/expired, so the error
+  // message points the student to the right place in Settings.
+  const pushErrorMessage = (idSuffix, fallbackText, e, source = 'Groq') => {
     pushMessage({
       id: Date.now() + idSuffix,
       role: 'ai',
       text:
         e.message === 'NO_API_KEY'
-          ? 'Please add your Gemini API key in Settings first so I can start teaching you.'
+          ? `Please add your ${source} API key in Settings first so I can start teaching you.`
           : e.message === 'API_KEY_EXPIRED'
-          ? 'Your API key expired after 24 hours. Please go to Settings and generate/save your key again to keep chatting.'
+          ? `Your ${source} API key expired after 24 hours. Please go to Settings and generate/save your key again to keep chatting.`
           : e.message === 'QUOTA_EXCEEDED'
-          ? 'Your free API key has reached its usage limit. Please generate a new API key in Settings to keep chatting.'
+          ? `Your free ${source} API key has reached its usage limit. Please generate a new key in Settings, or try again in a bit.`
           : fallbackText,
     });
   };
@@ -265,14 +276,14 @@ export default function HomeScreen() {
           question: photoQuestion,
           classNumber: profile?.classNumber,
           board: profile?.board,
-          history: historyRef.current,
+          history: toGeminiContents(historyRef.current),
         });
         // The image itself isn't stored in history (too large) — just a text
         // placeholder so future turns know a photo question happened here.
         historyRef.current = [
           ...historyRef.current,
-          { role: 'user', parts: [{ text: '[Sent a photo] ' + photoQuestion }] },
-          { role: 'model', parts: [{ text: result.text }] },
+          { role: 'user', text: '[Sent a photo] ' + photoQuestion },
+          { role: 'ai', text: result.text },
         ].slice(-20);
         await recordTopic('photo question');
       } else {
@@ -280,18 +291,23 @@ export default function HomeScreen() {
           question,
           classNumber: profile?.classNumber,
           board: profile?.board,
-          history: historyRef.current,
+          history: toGroqMessages(historyRef.current),
         });
         historyRef.current = [
           ...historyRef.current,
-          { role: 'user', parts: [{ text: question }] },
-          { role: 'model', parts: [{ text: result.text }] },
+          { role: 'user', text: question },
+          { role: 'ai', text: result.text },
         ].slice(-20);
         await recordTopic(question.slice(0, 80));
       }
       pushAiMessage('-ai', result);
     } catch (e) {
-      pushErrorMessage('-err', "Sorry, I couldn't process that. Please try again.", e);
+      pushErrorMessage(
+        '-err',
+        "Sorry, I couldn't process that. Please try again.",
+        e,
+        imageToSend ? 'Gemini' : 'Groq'
+      );
     } finally {
       setSending(false);
     }
@@ -350,7 +366,8 @@ export default function HomeScreen() {
         pushErrorMessage(
           '-err-voice',
           "Sorry, I couldn't understand that recording. Please try again.",
-          e
+          e,
+          'Gemini'
         );
       } finally {
         setTranscribing(false);
@@ -377,34 +394,42 @@ export default function HomeScreen() {
     Speech.speak(plain, { language: detectSpeechLanguage(text) });
   };
 
-  const renderItem = useCallback(({ item }) => {
-    const isImageOnly = !!item.image && !item.text;
-    return (
-      <View
-        style={[
-          styles.bubble,
-          item.role === 'user' ? styles.bubbleUser : styles.bubbleAi,
-          isImageOnly && styles.bubbleImageOnly,
-        ]}
-      >
-        {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
-        {item.text ? <FormattedText text={item.text} style={styles.bubbleText} /> : null}
-        {item.role === 'ai' && item.aiImage ? (
-          <Image
-            source={{ uri: item.aiImage }}
-            style={styles.aiIllustration}
-            resizeMode="cover"
-          />
-        ) : null}
-        {item.role === 'ai' && item.text ? (
-          <Pressable style={styles.speakButton} onPress={() => speakMessage(item.text)}>
-            <Ionicons name="volume-medium-outline" size={16} color={colors.gold} />
-            <Text style={styles.speakLabel}>Listen</Text>
-          </Pressable>
-        ) : null}
-      </View>
-    );
-  }, []);
+  // Premium chat bubbles get a subtle gold border on both the student's own
+  // messages and the AI's replies — a small visual reward that's visible in
+  // every single conversation, not just on special screens.
+  const renderItem = useCallback(
+    ({ item }) => {
+      const isImageOnly = !!item.image && !item.text;
+      const isUser = item.role === 'user';
+      return (
+        <View
+          style={[
+            styles.bubble,
+            isUser ? styles.bubbleUser : styles.bubbleAi,
+            isPremium && (isUser ? styles.bubbleUserPremium : styles.bubbleAiPremium),
+            isImageOnly && styles.bubbleImageOnly,
+          ]}
+        >
+          {item.image && <Image source={{ uri: item.image }} style={styles.bubbleImage} />}
+          {item.text ? <FormattedText text={item.text} style={styles.bubbleText} /> : null}
+          {item.role === 'ai' && item.aiImage ? (
+            <Image
+              source={{ uri: item.aiImage }}
+              style={styles.aiIllustration}
+              resizeMode="cover"
+            />
+          ) : null}
+          {item.role === 'ai' && item.text ? (
+            <Pressable style={styles.speakButton} onPress={() => speakMessage(item.text)}>
+              <Ionicons name="volume-medium-outline" size={16} color={colors.gold} />
+              <Text style={styles.speakLabel}>Listen</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      );
+    },
+    [isPremium]
+  );
 
   return (
     <ScreenBackground style={{ flex: 1 }}>
@@ -592,11 +617,19 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     backgroundColor: colors.gradientStart,
   },
+  bubbleUserPremium: {
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+  },
   bubbleAi: {
     alignSelf: 'flex-start',
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  bubbleAiPremium: {
+    borderWidth: 1.5,
+    borderColor: colors.gold,
   },
   bubbleImageOnly: {
     padding: 4,
@@ -710,4 +743,3 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
-  
