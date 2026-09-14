@@ -8,8 +8,10 @@ import SubScreenHeader from '../../components/SubScreenHeader';
 import PremiumButton from '../../components/PremiumButton';
 import { colors, radius, spacing, typography, shadow } from '../../theme/theme';
 import { markApiKeySaved, getKeyTimeRemainingMs } from '../../services/geminiService';
+import { markGroqKeySaved, getGroqKeyTimeRemainingMs } from '../../services/groqService';
 
 const GEMINI_KEY_URL = 'https://aistudio.google.com/app/apikey';
+const GROQ_KEY_URL = 'https://console.groq.com/keys';
 
 function formatRemaining(ms) {
   if (ms <= 0) return null;
@@ -19,7 +21,16 @@ function formatRemaining(ms) {
   return `${hours}h ${minutes}m remaining`;
 }
 
-export default function ApiKeyScreen({ navigation }) {
+// One reusable card for a single provider's key — used twice below (Groq
+// for chat, Gemini for photo/voice), so both keys look and behave the same.
+function KeySection({
+  label,
+  hint,
+  storageKey,
+  generateUrl,
+  onSaved,
+  getTimeRemainingMs,
+}) {
   const [apiKey, setApiKey] = useState('');
   const [saved, setSaved] = useState(false);
   const [remainingMs, setRemainingMs] = useState(0);
@@ -27,14 +38,14 @@ export default function ApiKeyScreen({ navigation }) {
 
   useEffect(() => {
     (async () => {
-      const stored = await AsyncStorage.getItem('klarium_api_key');
+      const stored = await AsyncStorage.getItem(storageKey);
       if (stored) setApiKey(stored);
-      const remaining = await getKeyTimeRemainingMs();
+      const remaining = await getTimeRemainingMs();
       setRemainingMs(remaining);
     })();
 
     intervalRef.current = setInterval(async () => {
-      const remaining = await getKeyTimeRemainingMs();
+      const remaining = await getTimeRemainingMs();
       setRemainingMs(remaining);
     }, 60000);
 
@@ -43,65 +54,95 @@ export default function ApiKeyScreen({ navigation }) {
 
   const handleSaveKey = async () => {
     const trimmed = apiKey.trim();
-    await AsyncStorage.setItem('klarium_api_key', trimmed);
-    await markApiKeySaved();
-    const remaining = await getKeyTimeRemainingMs();
+    await AsyncStorage.setItem(storageKey, trimmed);
+    await onSaved();
+    const remaining = await getTimeRemainingMs();
     setRemainingMs(remaining);
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
   };
 
   const openGenerateKey = () => {
-    WebBrowser.openBrowserAsync(GEMINI_KEY_URL);
+    WebBrowser.openBrowserAsync(generateUrl);
   };
 
   const remainingLabel = formatRemaining(remainingMs);
 
   return (
+    <>
+      <Text style={styles.sectionLabel}>{label}</Text>
+      <Text style={styles.sectionHint}>{hint}</Text>
+
+      {apiKey.trim().length > 0 && (
+        <View style={[styles.timerBadge, !remainingLabel && styles.timerBadgeExpired]}>
+          <Ionicons
+            name="time-outline"
+            size={14}
+            color={remainingLabel ? colors.gold : colors.danger}
+          />
+          <Text style={[styles.timerText, !remainingLabel && { color: colors.danger }]}>
+            {remainingLabel || 'Expired — regenerate and save your key again'}
+          </Text>
+        </View>
+      )}
+
+      <View style={[styles.card, shadow.card]}>
+        <TextInput
+          value={apiKey}
+          onChangeText={setApiKey}
+          placeholder="Paste your API key here"
+          placeholderTextColor={colors.textMuted}
+          style={styles.input}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+        <PremiumButton
+          label={saved ? 'Saved ✓' : 'Save Key'}
+          onPress={handleSaveKey}
+          disabled={!apiKey.trim()}
+          style={{ marginBottom: spacing.sm }}
+        />
+        <PremiumButton label="GENERATE API KEY" variant="outline" onPress={openGenerateKey} />
+      </View>
+    </>
+  );
+}
+
+export default function ApiKeyScreen({ navigation }) {
+  return (
     <ScreenBackground>
-      <SubScreenHeader title="Gemini API Key" onBack={() => navigation.goBack()} />
+      <SubScreenHeader title="API Keys" onBack={() => navigation.goBack()} />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.iconCircle}>
           <Ionicons name="key" size={30} color={colors.gold} />
         </View>
 
-        <Text style={styles.heading}>Connect Your AI Key</Text>
+        <Text style={styles.heading}>Connect Your AI Keys</Text>
         <Text style={styles.hint}>
-          KLARIUM AI needs a free Gemini API key to teach you. Generate one below,
-          then paste it in the field to start chatting.
+          KLARIUM AI uses two free keys: Groq powers your text chat (it resets
+          every minute, so it rarely runs out), and Gemini handles photo
+          questions and voice notes.
         </Text>
 
-        {apiKey.trim().length > 0 && (
-          <View style={[styles.timerBadge, !remainingLabel && styles.timerBadgeExpired]}>
-            <Ionicons
-              name="time-outline"
-              size={14}
-              color={remainingLabel ? colors.gold : colors.danger}
-            />
-            <Text style={[styles.timerText, !remainingLabel && { color: colors.danger }]}>
-              {remainingLabel || 'Expired — regenerate and save your key again'}
-            </Text>
-          </View>
-        )}
+        <KeySection
+          label="Groq Key (Chat)"
+          hint="Used for regular text questions and quizzes."
+          storageKey="klarium_groq_api_key"
+          generateUrl={GROQ_KEY_URL}
+          onSaved={markGroqKeySaved}
+          getTimeRemainingMs={getGroqKeyTimeRemainingMs}
+        />
 
-        <View style={[styles.card, shadow.card]}>
-          <TextInput
-            value={apiKey}
-            onChangeText={setApiKey}
-            placeholder="Paste your API key here"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            secureTextEntry
-            autoCapitalize="none"
-          />
-          <PremiumButton
-            label={saved ? 'Saved ✓' : 'Save Key'}
-            onPress={handleSaveKey}
-            disabled={!apiKey.trim()}
-            style={{ marginBottom: spacing.sm }}
-          />
-          <PremiumButton label="GENERATE API KEY" variant="outline" onPress={openGenerateKey} />
-        </View>
+        <View style={styles.divider} />
+
+        <KeySection
+          label="Gemini Key (Photo & Voice)"
+          hint="Used when you send a photo of a question or use the mic."
+          storageKey="klarium_api_key"
+          generateUrl={GEMINI_KEY_URL}
+          onSaved={markApiKeySaved}
+          getTimeRemainingMs={getKeyTimeRemainingMs}
+        />
 
         <Text style={styles.expiryNote}>
           For security, each key stays active for 24 hours. After that, generate
@@ -140,6 +181,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     paddingHorizontal: spacing.sm,
   },
+  sectionLabel: {
+    ...typography.h2,
+    fontSize: 16,
+    alignSelf: 'flex-start',
+    marginBottom: 2,
+  },
+  sectionHint: {
+    ...typography.caption,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+  },
   timerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -175,6 +227,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     color: colors.textPrimary,
     marginBottom: spacing.md,
+  },
+  divider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xl,
   },
   expiryNote: {
     ...typography.caption,
