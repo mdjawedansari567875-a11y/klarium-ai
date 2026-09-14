@@ -17,6 +17,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
 import ScreenBackground from '../../components/ScreenBackground';
 import TestModal from '../../components/TestModal';
@@ -46,16 +47,10 @@ const WELCOME_MESSAGE = {
   text: "Hi! I'm KLARIUM AI 🌟 Ask me anything from your syllabus, or send a photo of a question and I'll explain it simply.",
 };
 
-// Used only to pick a voice for "Listen" — checks if the text contains
-// Devanagari characters (Hindi script) to decide which speech language to use.
 function detectSpeechLanguage(text) {
   return /[\u0900-\u097F]/.test(text) ? 'hi-IN' : 'en-US';
 }
 
-// The chat history is kept in a neutral shape ({ role: 'user'|'ai', text })
-// and converted to whichever format each provider expects right before the
-// call — Groq (text chat) wants OpenAI-style messages, Gemini (photo) wants
-// its own contents/parts shape.
 function toGroqMessages(history) {
   return history.map((h) => ({
     role: h.role === 'user' ? 'user' : 'assistant',
@@ -75,7 +70,7 @@ export default function HomeScreen() {
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [input, setInput] = useState('');
-  const [pendingImage, setPendingImage] = useState(null); // { uri, base64 } picked but not sent yet
+  const [pendingImage, setPendingImage] = useState(null);
   const [sending, setSending] = useState(false);
   const [testVisible, setTestVisible] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
@@ -90,8 +85,6 @@ export default function HomeScreen() {
   const [isPremium, setIsPremiumState] = useState(false);
   const listRef = useRef(null);
   const recordingRef = useRef(null);
-  // Neutral conversation memory ({ role: 'user'|'ai', text }), capped to the
-  // last 20 turns to keep requests reasonably sized.
   const historyRef = useRef([]);
 
   useEffect(() => {
@@ -99,15 +92,12 @@ export default function HomeScreen() {
       const raw = await AsyncStorage.getItem('klarium_profile');
       if (raw) setProfile(JSON.parse(raw));
 
-      // Restore chat history so it survives closing/reopening the app.
       const historyRaw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
       if (historyRaw) {
         try {
           const parsed = JSON.parse(historyRaw);
           if (Array.isArray(parsed) && parsed.length > 0) {
             setMessages(parsed);
-            // Rebuild the AI's conversation memory from the restored messages
-            // (text-only turns), so context carries over across app restarts.
             historyRef.current = parsed
               .filter((m) => m.id !== 'welcome' && m.text)
               .map((m) => ({ role: m.role, text: m.text }))
@@ -127,16 +117,12 @@ export default function HomeScreen() {
     })();
   }, []);
 
-  // Load premium status on mount, and keep it in sync if it changes anywhere
-  // else in the app (e.g. after a purchase or a dev toggle in Settings).
   useEffect(() => {
     getIsPremium().then(setIsPremiumState);
     const unsubscribe = subscribeToPremiumStatus(setIsPremiumState);
     return unsubscribe;
   }, []);
 
-  // Persist chat history every time it changes, once the initial load is done
-  // (avoids overwriting saved history with the default welcome message).
   useEffect(() => {
     if (!historyLoaded) return;
     AsyncStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages)).catch(() => {});
@@ -182,9 +168,6 @@ export default function HomeScreen() {
     await markTestShown();
   };
 
-  // Premium-only: lets the student generate a quiz anytime, instead of
-  // waiting for the 7-day streak trigger. Does NOT touch the leaderboard —
-  // this is just for the student's own practice.
   const handlePracticeQuiz = async () => {
     tapFeedback();
     setPracticeQuizVisible(true);
@@ -215,8 +198,6 @@ export default function HomeScreen() {
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
-  // `source` tells us which provider's key is missing/expired, so the error
-  // message points the student to the right place in Settings.
   const pushErrorMessage = (idSuffix, fallbackText, e, source = 'Groq') => {
     pushMessage({
       id: Date.now() + idSuffix,
@@ -232,10 +213,6 @@ export default function HomeScreen() {
     });
   };
 
-  // Turns a raw AI result ({ text, imagePrompt }) into the message pushed to
-  // chat — building the Pollinations.ai illustration URL if the AI asked for
-  // one. Pollinations has no guaranteed uptime, so if the image fails to
-  // load, <Image> will simply show nothing rather than break the message.
   const pushAiMessage = (idSuffix, result) => {
     const aiImageUrl = result.imagePrompt ? buildIllustrationUrl(result.imagePrompt) : null;
     pushMessage({
@@ -246,10 +223,6 @@ export default function HomeScreen() {
     });
   };
 
-  // Handles sending whatever is currently staged: text only, a pending image
-  // only, or an image with a caption typed alongside it (attach-then-caption
-  // flow — the image is picked first and sits as a preview until the student
-  // taps send).
   const sendText = async () => {
     const question = input.trim();
     const imageToSend = pendingImage;
@@ -278,8 +251,6 @@ export default function HomeScreen() {
           board: profile?.board,
           history: toGeminiContents(historyRef.current),
         });
-        // The image itself isn't stored in history (too large) — just a text
-        // placeholder so future turns know a photo question happened here.
         historyRef.current = [
           ...historyRef.current,
           { role: 'user', text: '[Sent a photo] ' + photoQuestion },
@@ -323,7 +294,6 @@ export default function HomeScreen() {
       quality: 0.6,
     });
     if (result.canceled) return;
-    // Just stage it as a preview — don't send yet, so the student can add a caption.
     setPendingImage(result.assets[0]);
   };
 
@@ -341,10 +311,6 @@ export default function HomeScreen() {
     setPendingImage(result.assets[0]);
   };
 
-  // Mic button: first tap starts recording, second tap stops it, transcribes
-  // it with Gemini, and drops the recognized text into the input box so the
-  // student can review (or edit) it before sending — just like a voice note
-  // that becomes editable text.
   const handleMicPress = async () => {
     tapFeedback();
     if (isRecording) {
@@ -389,14 +355,10 @@ export default function HomeScreen() {
   const speakMessage = (text) => {
     tapFeedback();
     Speech.stop();
-    // Strip ** markers before speaking so the voice doesn't say "asterisk asterisk".
     const plain = text.replace(/\*\*/g, '');
     Speech.speak(plain, { language: detectSpeechLanguage(text) });
   };
 
-  // Premium chat bubbles get a subtle gold border on both the student's own
-  // messages and the AI's replies — a small visual reward that's visible in
-  // every single conversation, not just on special screens.
   const renderItem = useCallback(
     ({ item }) => {
       const isImageOnly = !!item.image && !item.text;
@@ -433,30 +395,34 @@ export default function HomeScreen() {
 
   return (
     <ScreenBackground style={{ flex: 1 }}>
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <View>
-            <View style={styles.nameRow}>
-              <Text style={typography.h1}>
-                {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
+      <View style={styles.headerWrapper}>
+        <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
+        <View style={styles.headerTint} />
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <View>
+              <View style={styles.nameRow}>
+                <Text style={typography.h1}>
+                  {profile?.name ? `Hi, ${profile.name}` : 'KLARIUM AI'}
+                </Text>
+                {isPremium && (
+                  <Image
+                    source={require('../../../assets/premium-crown.png')}
+                    style={styles.crownBadge}
+                  />
+                )}
+              </View>
+              <Text style={styles.headerSubtitle}>
+                {profile ? `Class ${profile.classNumber} · ${profile.board}` : 'Your AI Tutor'}
               </Text>
-              {isPremium && (
-                <Image
-                  source={require('../../../assets/premium-crown.png')}
-                  style={styles.crownBadge}
-                />
-              )}
             </View>
-            <Text style={styles.headerSubtitle}>
-              {profile ? `Class ${profile.classNumber} · ${profile.board}` : 'Your AI Tutor'}
-            </Text>
+            {isPremium && (
+              <Pressable style={styles.practiceButton} onPress={handlePracticeQuiz}>
+                <Ionicons name="create-outline" size={14} color={colors.gold} />
+                <Text style={styles.practiceButtonText}>Practice Quiz</Text>
+              </Pressable>
+            )}
           </View>
-          {isPremium && (
-            <Pressable style={styles.practiceButton} onPress={handlePracticeQuiz}>
-              <Ionicons name="create-outline" size={14} color={colors.gold} />
-              <Text style={styles.practiceButtonText}>Practice Quiz</Text>
-            </Pressable>
-          )}
         </View>
       </View>
 
@@ -499,37 +465,41 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <View style={styles.inputRow}>
-          <Pressable
-            style={styles.iconButton}
-            onPress={() => {
-              tapFeedback();
-              setAttachmentVisible(true);
-            }}
-          >
-            <Ionicons name="image-outline" size={22} color={colors.gold} />
-          </Pressable>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder={pendingImage ? 'Add a caption (optional)...' : 'Ask me anything...'}
-            placeholderTextColor={colors.textMuted}
-            style={styles.textInput}
-            multiline
-          />
-          <Pressable
-            style={[styles.iconButton, isRecording && styles.iconButtonRecording]}
-            onPress={handleMicPress}
-          >
-            <Ionicons
-              name={isRecording ? 'stop' : 'mic-outline'}
-              size={22}
-              color={isRecording ? '#fff' : colors.gold}
+        <View style={styles.inputRowWrapper}>
+          <BlurView intensity={35} tint="dark" style={StyleSheet.absoluteFill} />
+          <View style={styles.inputRowTint} />
+          <View style={styles.inputRow}>
+            <Pressable
+              style={styles.iconButton}
+              onPress={() => {
+                tapFeedback();
+                setAttachmentVisible(true);
+              }}
+            >
+              <Ionicons name="image-outline" size={22} color={colors.gold} />
+            </Pressable>
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              placeholder={pendingImage ? 'Add a caption (optional)...' : 'Ask me anything...'}
+              placeholderTextColor={colors.textMuted}
+              style={styles.textInput}
+              multiline
             />
-          </Pressable>
-          <Pressable style={styles.sendButton} onPress={sendText} disabled={sending}>
-            <Ionicons name="send" size={18} color="#fff" />
-          </Pressable>
+            <Pressable
+              style={[styles.iconButton, isRecording && styles.iconButtonRecording]}
+              onPress={handleMicPress}
+            >
+              <Ionicons
+                name={isRecording ? 'stop' : 'mic-outline'}
+                size={22}
+                color={isRecording ? '#fff' : colors.gold}
+              />
+            </Pressable>
+            <Pressable style={styles.sendButton} onPress={sendText} disabled={sending}>
+              <Ionicons name="send" size={18} color="#fff" />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -562,12 +532,19 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerWrapper: {
+    overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(212,175,55,0.2)',
+  },
+  headerTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11,11,20,0.35)',
+  },
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   headerRow: {
     flexDirection: 'row',
@@ -705,13 +682,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  inputRowWrapper: {
+    overflow: 'hidden',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(212,175,55,0.2)',
+  },
+  inputRowTint: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(11,11,20,0.35)',
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
     gap: spacing.sm,
   },
   iconButton: {
