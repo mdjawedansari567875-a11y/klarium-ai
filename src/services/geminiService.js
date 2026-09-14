@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Current Gemini flash model — text + photo understanding, no image generation
-// (image generation requires a billed Google Cloud account, so we keep this
-// app fully usable on a free API key). Confirmed working well by the user.
+// Current Gemini flash model — used ONLY for photo questions and voice
+// transcription now. Regular text chat runs on Groq instead (groqService.js),
+// since Groq's free tier resets every minute rather than once per day.
 const GEMINI_MODEL = 'gemini-3.6-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -10,10 +10,6 @@ const KEY_STORAGE = 'klarium_api_key';
 const KEY_SAVED_AT_STORAGE = 'klarium_api_key_saved_at';
 const KEY_LIFETIME_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-// The system instruction that makes the AI teach "like explaining to a child" —
-// simple words, one topic at a time. No fixed language — the AI mirrors
-// whatever language/style the student writes in (English, Hindi, or Hinglish),
-// exactly like how this AI assistant behaves.
 const TUTOR_INSTRUCTION = (classNumber, board) => `
 You are KLARIUM AI, a friendly tutor for a Class ${classNumber} student following the ${board} curriculum.
 Rules for every answer:
@@ -50,7 +46,6 @@ export async function markApiKeySaved() {
   await AsyncStorage.setItem(KEY_SAVED_AT_STORAGE, String(Date.now()));
 }
 
-// Returns milliseconds remaining before the key "expires" in-app, or 0 if expired/unset.
 export async function getKeyTimeRemainingMs() {
   const savedAt = Number((await AsyncStorage.getItem(KEY_SAVED_AT_STORAGE)) || 0);
   if (!savedAt) return 0;
@@ -70,9 +65,6 @@ async function getValidApiKey() {
   return key;
 }
 
-// Free-tier Gemini keys stop working once the daily/monthly quota runs out.
-// Google returns HTTP 429 with a RESOURCE_EXHAUSTED status in that case —
-// this turns that into a clear, specific error the UI can act on.
 function throwGeminiError(status, data) {
   const message = data?.error?.message || '';
   const errStatus = data?.error?.status || '';
@@ -103,10 +95,6 @@ async function callGemini(key, body) {
   return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-// Pulls the hidden "IMAGE_PROMPT: ..." line (if present) out of the raw AI
-// text, so it never shows up to the student, and returns both pieces
-// separately: the clean answer text, and the short prompt to illustrate it
-// (or null if the AI decided no image was needed for this answer).
 function extractImagePrompt(rawText) {
   const match = rawText.match(/\n?IMAGE_PROMPT:\s*(.+)\s*$/i);
   if (!match) {
@@ -117,24 +105,8 @@ function extractImagePrompt(rawText) {
   return { text, imagePrompt };
 }
 
-// Ask the AI a text question. `history` is the prior conversation (array of
-// {role: 'user'|'model', parts: [{text}]}), so the AI remembers what was
-// already discussed instead of treating every message as a fresh start.
-// Returns { text, imagePrompt } — imagePrompt is null when no illustration
-// was warranted for this particular answer.
-export async function askTutorText({ question, classNumber, board, history = [] }) {
-  const key = await getValidApiKey();
-  const raw = await callGemini(key, {
-    systemInstruction: { parts: [{ text: TUTOR_INSTRUCTION(classNumber, board) }] },
-    contents: [...history, { role: 'user', parts: [{ text: question }] }],
-    generationConfig: { maxOutputTokens: 4096 },
-  });
-  return extractImagePrompt(raw);
-}
-
 // Ask the AI about a photo (e.g. a textbook page, a diagram, homework question).
-// Gemini can read/understand the photo and explain it in text, even on a free key.
-// `history` works the same way as in askTutorText. Also returns { text, imagePrompt }.
+// Still runs on Gemini, since Groq's vision support isn't as reliable for this.
 export async function askTutorPhoto({
   base64Image,
   mimeType,
@@ -161,49 +133,8 @@ export async function askTutorPhoto({
   return extractImagePrompt(raw);
 }
 
-// Shared quiz-generation logic used by both the weekly streak test and the
-// on-demand practice quiz — asks Gemini for a strict-JSON multiple choice
-// quiz based on a list of topics, and safely parses the result.
-// Language rule: NCERT board students get questions in Hindi, CBSE board
-// students get questions in English — matching what each board typically
-// expects in their region.
-async function requestQuiz({ topics, classNumber, board }) {
-  const key = await getValidApiKey();
-  const language = board === 'NCERT' ? 'Hindi (Devanagari script)' : 'English';
-  const prompt = `
-Create a 5-question multiple choice quiz for a Class ${classNumber} (${board}) student
-based ONLY on these topics they studied: ${topics.join(', ')}.
-Write the question text and all 4 options entirely in ${language}.
-Respond with ONLY valid JSON, no markdown, in this exact shape:
-[{"question": "...", "options": ["A","B","C","D"], "correctIndex": 0}]
-`;
-  const raw = await callGemini(key, {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-  });
-  const cleaned = raw.replace(/```json|```/g, '').trim();
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    return [];
-  }
-}
-
-// Generates a short quiz from the list of topics the student has learned this week.
-// Used to power the weekly streak test popup.
-export async function generateWeeklyQuiz({ topics, classNumber, board }) {
-  return requestQuiz({ topics, classNumber, board });
-}
-
-// Generates a short quiz on-demand — used by the premium "Practice Quiz" button,
-// so a student can test themselves anytime instead of waiting for the 7-day
-// streak trigger. Same underlying logic as the weekly quiz.
-export async function generatePracticeQuiz({ topics, classNumber, board }) {
-  return requestQuiz({ topics, classNumber, board });
-}
-
 // Transcribes a short voice recording into plain text, so the student can
-// speak their question instead of typing it. Gemini's audio understanding
-// works on the same free text model, no extra setup needed.
+// speak their question instead of typing it. Stays on Gemini.
 export async function transcribeAudio({ base64Audio, mimeType }) {
   const key = await getValidApiKey();
   const raw = await callGemini(key, {
