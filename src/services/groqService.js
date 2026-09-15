@@ -5,6 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // who hit a limit only wait a short while instead of being stuck for the
 // rest of the day.
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// Groq's current vision-capable model — used as a fallback when Gemini's
+// free quota runs out on a photo question, so photo help never fully stops.
+const GROQ_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const KEY_STORAGE = 'klarium_groq_api_key';
@@ -110,6 +113,38 @@ export async function askTutorText({ question, classNumber, board, history = [] 
       { role: 'system', content: TUTOR_INSTRUCTION(classNumber, board) },
       ...history,
       { role: 'user', content: question },
+    ],
+    max_tokens: 4096,
+  });
+  return extractImagePrompt(raw);
+}
+
+// Fallback photo handler — used when Gemini's quota runs out on a photo
+// question, so students aren't left stuck with no way to get help on a
+// photo of a question. Same input/output shape as geminiService's
+// askTutorPhoto, uses Groq's own separate free-tier key/quota.
+export async function askTutorPhoto({
+  base64Image,
+  mimeType,
+  question,
+  classNumber,
+  board,
+}) {
+  const key = await getValidGroqKey();
+  const raw = await callGroq(key, {
+    model: GROQ_VISION_MODEL,
+    messages: [
+      { role: 'system', content: TUTOR_INSTRUCTION(classNumber, board) },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: question || 'Please explain what is shown in this image.' },
+          {
+            type: 'image_url',
+            image_url: { url: `data:${mimeType};base64,${base64Image}` },
+          },
+        ],
+      },
     ],
     max_tokens: 4096,
   });
