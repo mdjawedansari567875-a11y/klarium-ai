@@ -29,8 +29,13 @@ import { tapFeedback } from '../../utils/haptics';
 import { getBannerAdUnitId } from '../../services/adsService';
 import { getIsPremium, subscribeToPremiumStatus } from '../../services/premiumService';
 import { buildIllustrationUrl } from '../../services/pollinationsService';
-import { askTutorText, generateWeeklyQuiz, generatePracticeQuiz } from '../../services/groqService';
-import { askTutorPhoto, transcribeAudio } from '../../services/geminiService';
+import {
+  askTutorText,
+  generateWeeklyQuiz,
+  generatePracticeQuiz,
+  askTutorPhoto as askTutorPhotoGroq,
+} from '../../services/groqService';
+import { askTutorPhoto as askTutorPhotoGemini, transcribeAudio } from '../../services/geminiService';
 import {
   recordActiveDay,
   recordTopic,
@@ -63,6 +68,31 @@ function toGeminiContents(history) {
     role: h.role === 'user' ? 'user' : 'model',
     parts: [{ text: h.text }],
   }));
+}
+
+// Tries Gemini first for photo questions (better quality), and silently
+// falls back to Groq's vision model if Gemini's key is missing, expired, or
+// out of quota — so a photo question never fully fails just because one
+// provider's free tier ran dry. Only errors from BOTH providers are shown
+// to the student.
+async function askTutorPhotoWithFallback({ base64Image, mimeType, question, classNumber, board, history }) {
+  try {
+    return await askTutorPhotoGemini({
+      base64Image,
+      mimeType,
+      question,
+      classNumber,
+      board,
+      history,
+    });
+  } catch (geminiError) {
+    try {
+      return await askTutorPhotoGroq({ base64Image, mimeType, question, classNumber, board });
+    } catch (groqError) {
+      // Surface whichever error is more specific/actionable; default to Gemini's.
+      throw groqError.message === 'NO_API_KEY' ? geminiError : groqError;
+    }
+  }
 }
 
 export default function HomeScreen() {
@@ -243,7 +273,7 @@ export default function HomeScreen() {
       let result;
       if (imageToSend) {
         const photoQuestion = question || 'Please explain what is shown in this image, simply.';
-        result = await askTutorPhoto({
+        result = await askTutorPhotoWithFallback({
           base64Image: imageToSend.base64,
           mimeType: 'image/jpeg',
           question: photoQuestion,
@@ -277,7 +307,7 @@ export default function HomeScreen() {
         '-err',
         "Sorry, I couldn't process that. Please try again.",
         e,
-        imageToSend ? 'Gemini' : 'Groq'
+        imageToSend ? 'Gemini/Groq' : 'Groq'
       );
     } finally {
       setSending(false);
