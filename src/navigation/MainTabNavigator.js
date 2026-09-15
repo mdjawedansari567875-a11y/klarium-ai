@@ -2,7 +2,6 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import HomeScreen from '../screens/main/HomeScreen';
 import LeaderboardScreen from '../screens/main/LeaderboardScreen';
 import SettingsStack from './SettingsStack';
@@ -16,18 +15,12 @@ const ICONS = {
   Settings: 'settings-sharp',
 };
 
-// Frosted "Liquid Glass" background behind the tab bar. NOTE: tabBarStyle is
-// NOT position:'absolute' here — that would require every screen (chat input,
-// lists) to add extra bottom padding to avoid being hidden behind the bar,
-// which caused the chat input to get covered. Kept in normal flow instead,
-// so nothing else needs to change; the blur still gives a frosted-glass look.
+// A simple semi-transparent tinted background — NOT BlurView, since real
+// blur rendering is unreliable on many Android devices/versions and shows
+// up as an ugly flat grey box instead of a proper frosted-glass effect.
+// This solid translucent tint gives a consistent "glass" feel everywhere.
 function TabBarBackground() {
-  return (
-    <View style={StyleSheet.absoluteFill}>
-      <BlurView intensity={45} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={styles.tint} />
-    </View>
-  );
+  return <View style={styles.tint} />;
 }
 
 export default function MainTabNavigator() {
@@ -63,6 +56,6 @@ export default function MainTabNavigator() {
 const styles = StyleSheet.create({
   tint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(11,11,20,0.35)',
+    backgroundColor: 'rgba(23,23,36,0.85)',
   },
 });
