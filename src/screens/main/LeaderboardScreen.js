@@ -100,7 +100,7 @@ export default function LeaderboardScreen() {
           data={visibleEntries}
           keyExtractor={(item, i) => item.name + i}
           renderItem={renderItem}
-          contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: spacing.xl }}
+          contentContainerStyle={{ paddingTop: spacing.lg, paddingBottom: 100 }}
         />
       )}
     </ScreenBackground>
