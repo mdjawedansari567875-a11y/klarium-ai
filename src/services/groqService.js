@@ -4,10 +4,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // resets every minute (not once per day/month like Gemini's), so students
 // who hit a limit only wait a short while instead of being stuck for the
 // rest of the day.
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+//
+// IMPORTANT: Groq periodically retires models (they emailed a deprecation
+// notice, then shut down llama-3.3-70b-versatile and the old vision model
+// on Aug 16, 2026). If chat/photo answers stop working with a generic
+// error, check https://console.groq.com/docs/deprecations for the current
+// replacement model IDs and update these two constants.
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 // Groq's current vision-capable model — used as a fallback when Gemini's
 // free quota runs out on a photo question, so photo help never fully stops.
-const GROQ_VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+// NOTE: its free tier has a tight 8,000 tokens/minute limit, so keep the
+// vision prompt short and max_tokens low (see askTutorPhoto below).
+const GROQ_VISION_MODEL = 'qwen/qwen3.6-27b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const KEY_STORAGE = 'klarium_groq_api_key';
@@ -42,6 +50,16 @@ Rules for every answer:
   Do NOT add this line for greetings, simple factual one-liners, math-only answers,
   or anything that isn't clearly improved by a picture. Skip it entirely rather than
   force an image. Never mention this line or the image to the student in your answer.
+`;
+
+// A shorter system prompt specifically for the vision fallback, since
+// qwen/qwen3.6-27b's free tier has a tight 8,000 tokens/minute limit —
+// the full TUTOR_INSTRUCTION plus an image (2048 tokens) plus a large
+// completion budget can exceed that in a single request.
+const VISION_INSTRUCTION = (classNumber, board) => `
+You are KLARIUM AI, a tutor for a Class ${classNumber} (${board}) student.
+Explain simply, one idea at a time, in the same language the student wrote in
+(English, Hindi, or Hinglish). No markdown symbols except **bold**.
 `;
 
 export async function markGroqKeySaved() {
@@ -122,7 +140,9 @@ export async function askTutorText({ question, classNumber, board, history = [] 
 // Fallback photo handler — used when Gemini's quota runs out on a photo
 // question, so students aren't left stuck with no way to get help on a
 // photo of a question. Same input/output shape as geminiService's
-// askTutorPhoto, uses Groq's own separate free-tier key/quota.
+// askTutorPhoto, uses Groq's own separate free-tier key/quota. Kept short
+// (small system prompt, low max_tokens) to fit within the vision model's
+// tight 8,000 tokens/minute free-tier limit.
 export async function askTutorPhoto({
   base64Image,
   mimeType,
@@ -134,7 +154,7 @@ export async function askTutorPhoto({
   const raw = await callGroq(key, {
     model: GROQ_VISION_MODEL,
     messages: [
-      { role: 'system', content: TUTOR_INSTRUCTION(classNumber, board) },
+      { role: 'system', content: VISION_INSTRUCTION(classNumber, board) },
       {
         role: 'user',
         content: [
@@ -146,7 +166,7 @@ export async function askTutorPhoto({
         ],
       },
     ],
-    max_tokens: 4096,
+    max_tokens: 1024,
   });
   return extractImagePrompt(raw);
 }
