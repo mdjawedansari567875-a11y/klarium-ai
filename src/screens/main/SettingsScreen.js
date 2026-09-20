@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.xxl,
+    paddingBottom: 100,
   },
   rowMargin: {
     marginTop: spacing.lg,
